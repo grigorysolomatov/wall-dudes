@@ -1,0 +1,10 @@
+export class BackAndForth {
+    constructor({server, myId, opponentId}) {
+	this.server = server;
+	this.myId = myId;
+	this.opponentId = opponentId;
+    }
+    connect() {
+	
+    }
+}

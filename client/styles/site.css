@@ -1,0 +1,127 @@
+body {
+    margin: 0;
+    padding: 20px;
+    overflow: hidden;
+    background-color: #324;
+    color: #fff;    
+    font-size: 18px;
+    font-family: "Margarine", sans-serif;
+    font-style: normal;
+
+    text-align: center;
+}
+* {
+    font-family: inherit;
+    color: inherit;
+    background-color: inherit;
+    color: inherit;
+}
+/* ----------------------------------------------------------------------------- */
+button {
+    font-size: 24px;
+    background-color: #324;
+    border-radius: 10px;
+    border-width: 3px;
+    border-color: #bac;
+    border-style: solid;
+    vertical-align: middle;
+}
+button:hover {
+    border-color: #fff;
+}
+button.edit {
+    font-size: 24px;
+    border: none;
+    color: #bac;
+}
+button.edit:hover {
+    font-size: 24px;
+    border: none;
+    color: #fff;
+}
+button.tab {
+    border-width: 4px;
+    font-size: 32px;
+}
+button.tab:hover {
+    
+}
+button.tab-open {
+    background-color: #000;
+}
+button#button-stop-play-random {
+    display: none;
+}
+/* ----------------------------------------------------------------------------- */
+.popup-outer {
+    position: fixed;
+    display: flex;
+    visibility: hidden;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    background-color: #0008;
+    opacity: 0;
+    transition: all 0.5s ease;
+}
+.popup-inner {
+    padding: 20px;    
+    text-align: center;
+    margin: auto;
+    border-radius: 5px;
+    box-shadow: 0 0 10px #fff;
+    border: solid #7f708a 2px;
+    background-color: #2e222f;
+    border-radius: 10px;
+}
+.popup-visible {
+    visibility: visible;
+    opacity: 1;
+    transition: all 1s ease;
+}
+/* ----------------------------------------------------------------------------- */
+input {
+    font-size: 18px;
+    padding: 10px;
+    border-style: solid;
+    border-radius: 5px;
+    border-width: 2px;
+}
+input:hover {
+    background-color: #000;    
+}
+input:focus {
+    border-color: #fff;
+    outline: none;
+    border-width: 2px;
+}
+/* ----------------------------------------------------------------------------- */
+span {
+    font-size: 24px;
+}
+p {
+    font-size: 24px;
+}
+/* ----------------------------------------------------------------------------- */
+.page {
+    text-align: center;
+
+}
+/* ----------------------------------------------------------------------------- */
+.align-left {
+    width: 50%;
+    display: inline-block;
+    text-align: left;
+}
+/* ----------------------------------------------------------------------------- */
+#phaser-window {
+    margin: 40px;
+}
+/* ----------------------------------------------------------------------------- */
+.test{
+    background-color: #000;
+}
+
+
