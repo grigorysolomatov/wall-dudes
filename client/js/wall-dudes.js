@@ -48,6 +48,9 @@ export class Game {
 	this.nrows = nrows;
 	this.ncols = ncols;
 
+	this.me = me;
+	this.opponent = opponent;	
+
 	this.logic = new GameLogic();
 
 	this.scene = await new Promise(resolve => {
@@ -129,6 +132,17 @@ export class Game {
 	})[0];
 	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	const UIStates = {
+	    startAwaitOpponent: async (context) => {
+		const {myIdx, exchange, game} = context;
+		game.ui.setStepCounter(3, game.opponent.color);
+		return 'awaitOpponent';
+	    },
+	    initStartTurn: async (context) => {
+		const {myIdx, exchange, game} = context;
+		// game.ui.setStepCounter(3, game.me.color);
+		return 'startTurn';
+	    },
+	    // .................................................................
 	    startTurn: async (context) => {
 		const {myIdx, exchange, game, turnData} = context;
 		
@@ -136,7 +150,9 @@ export class Game {
 		turnData.origin = null;
 		turnData.target = null;
 		turnData.ability = null;
-		
+
+		game.ui.setStepCounter(3, game.me.color);
+
 		return 'selectDude';
 	    },
 	    selectDude: async (context) => {
@@ -171,6 +187,9 @@ export class Game {
 		}
 		if (choice.target) {
 		    turnData.steps -= 1;
+		    if (turnData.steps > 0) {
+			game.ui.setStepCounter(turnData.steps, game.me.color);
+		    }
 		    game.moveDude(turnData.origin, turnData.target);		    
 		    await exchange(turnData);
 		    turnData.origin = turnData.target;
@@ -188,11 +207,13 @@ export class Game {
 		
 		await exchange(turnData);
 		
-		return 'awaitOpponent';
+		return 'startAwaitOpponent';
 	    },
 	    awaitOpponent: async (context) => {
 		const {myIdx, exchange, game} = context;
+		
 		const turnData = await exchange(null);
+		game.ui.setStepCounter(turnData.steps, game.opponent.color);
 
 		if (turnData.ability === 'pass') {
 		    return 'startTurn';
@@ -222,7 +243,7 @@ export class Game {
 	    ...bombStates,
 	};
 	await new CompStateMachine(UIStates).run({
-	    start: (myIdx===0)? 'startTurn': 'awaitOpponent',
+	    start: (myIdx===0)? 'startTurn': 'startAwaitOpponent',
 	    context: {myIdx, exchange, game: this, turnData: {}},
 	});
     }
@@ -453,20 +474,19 @@ class GameUI {
 	// this.makeBombSprite('empty', 'lava').setOrigin(0.5).x = 0;
 	await this.makeTitle(me, opponent);
 	await this.makeTiles(nrows, ncols);
+	// await this.setStepCounter(3, 0xffff00); // await
 	this.makeBackclick();
 	this.makeSelects();
     }
     // Make --------------------------------------------------------------------
     async makeTitle(me, opponent) {
-	const {height, width} = this.scene.scale;
-	const title = this.scene.add.container();
+	const {width, height} = this.scene.scale;
+	const title = this.scene.add.container(0.50*width, 0.50*height);
 
-	[this.scene.addText(0.25*width, 0.5*height, `${me.name}`)
-	 .setColor(me.color),
-	 this.scene.addText(0.50*width, 0.5*height, `vs`)
-	 .setColor('#ff4444'),
-	 this.scene.addText(0.75*width, 0.5*height, `${opponent.name}`)
-	 .setColor(opponent.color),
+	[
+	    this.scene.addText(-0.25*width, 0, `${me.name}`).setColor(me.color),
+	    this.scene.addText(0, 0, `vs`).setColor('#ff4444'),
+	    this.scene.addText(0.25*width, 0, `${opponent.name}`).setColor(opponent.color),
 	].forEach(text => title.add(text.setAlpha(0)));
 
 
@@ -484,7 +504,7 @@ class GameUI {
 	await new Promise(resolve => { // Move title to top
 	    this.scene.tweens.add({ // Move title to top
 		targets: title,
-		y: -0.5*height + 0.1*height,
+		y: 0.1*height,
 		duration: 1000,
 		ease: 'Quint.InOut',
 		onComplete: resolve,
@@ -495,20 +515,26 @@ class GameUI {
 	return this;
     }
     async makeTiles(nrows, ncols) {
-	const {height, width} = this.scene.scale;
-	const tiles = this.scene.add.container();
+	const {width, height} = this.scene.scale;
+	const tiles = this.scene.add.container(0.5*width, 0.5*height);
 
 	const points = new Array(nrows*ncols).fill(null)
 	      .map((_, i) => [Math.floor(i / ncols), i % ncols]);
 	points.forEach(([row, col]) => { // Create sprites
 	    const step = 52;
-	    const tile = this.makeSprite(
-		'empty',
-		step*col + 0.5*width - (ncols-1)*step/2, // Is this correct?
-		step*row + 0.5*height - (nrows-1)*step/2, // Is this correct?
-	    ).setAlpha(0.0);
+	    const pos = [
+		step*col - (ncols-1)*step/2,
+		step*row - (nrows-1)*step/2,
+	    ];
+	    //const pos = [
+	    //    step*col - (ncols-1)*step/2 + 0.5*width,
+	    //    step*row + this.title.y + 100, // step*row - (nrows-1)*step/2 + 0.5*height,
+	    //];
+	    const tile = this.makeSprite('empty', ...pos).setAlpha(0.0);
 	    tiles.add(tile);
 	});
+
+	tiles.y = this.title.y - tiles.list[0].y + 100;
 
 	const promises = tiles.list.map((tile, i) => new Promise(async resolve => { // Animate creation
 	    const [row, col] = [Math.floor(i/ncols), i % ncols];
@@ -530,19 +556,30 @@ class GameUI {
 	this.ncols = ncols;
 	return this;
     }
-    async makeDudes(dudesDict, onComplete) {
+    // .........................................................................
+    async makeDudes(dudesDict) {
+	const container = this.scene.add.container(this.tiles.x, this.tiles.y)
 	const dudes = new Dict();
-	const promises = dudesDict.keys().map(async pos => {
-	    const dude = this.makeSprite(dudesDict.get(pos));
-	    await this.placeSprite(pos, dude);
-	    dudes.set(pos, dude);
-	});
-	await Promise.all(promises);
-
+	const promises = dudesDict.keys().map(async ([row, col]) => new Promise(resolve => {
+	    const dude = this.makeSprite(dudesDict.get([row, col]));
+	    dudes.set([row, col], dude);
+	    container.add(dude);
+	    const tile = this.tiles.list[row*this.ncols + col];	    
+	    this.scene.tweens.add({
+		targets: dude.setPosition(tile.x, tile.y),
+		scale: {from: 0, to: dude.scale},
+		duration: 1000,
+		ease: 'Quint.Out',
+		onComplete: resolve,
+	    });
+	}));	
+	await Promise.all(promises);	
+	
 	this.dudes = dudes;
 	return this;
     }
-    async makeAbilitiesCore(owner) {
+    // -------------------------------------------------------------------------
+    async makeAbilitiesCore(owner) { // TODO: remove owner?
 	// Create --------------------------------------------------------------
 	const makeAbility = abilityLabel => {
 	    const ability = this.makeSprite(abilityLabel).setAlpha(0.5).setInteractive();
@@ -565,7 +602,6 @@ class GameUI {
 	const makeBomb = (type1, type2) => {
 	    const bomb = this.makeBombSprite(type1, type2).setAlpha(0.5).setInteractive();
 	    bomb.abilityLabel = `explodeBomb-${type1}-${type2}`;
-	    // bomb.abilityLabel = `explodeBomb`;
 	    bomb.on('pointerover', () => this.scene.tweens.add({
 		targets: bomb,
 		scale: (bomb.alpha>0.5)? 1.2*bomb.baseScale : bomb.baseScale, // HACK?
@@ -582,7 +618,7 @@ class GameUI {
 	    return bomb;
 	};
 	
-	const abilities = this.scene.add.container();
+	const abilities = this.scene.add.container(this.tiles.x, this.tiles.y);
 	abilities.add([
 	    makeAbility('pass'),
 	    makeBomb('empty', 'wall'),
@@ -599,45 +635,83 @@ class GameUI {
 	    ability.baseScale = ability.scale;
 	    ability.abilityActive = true;
 	});
-	[this.scene.scale].forEach(({height, width}) => { // Centralize
+	[this.scene.scale].forEach(({width, height}) => { // Centralize
 	    abilities.list.forEach((ability, i) => { // Align
-		ability.x = this.tiles.list[0].x - ability.displayWidth - 40;
-		if (owner === 'opponent') { ability.x = width - ability.x; }
+		ability.x = [this.tiles.list].map(tiles => {
+		    return (owner === 'me')? tiles[0].x - 100 : tiles[tiles.length - 1].x + 100
+		})[0];
 		ability.y = i*(ability.displayHeight + 10);
 	    });
 	    const offsetY = 0.5*(abilities.list[abilities.list.length-1].y + abilities.list[0].y);
-	    abilities.y = abilities.y - offsetY + 0.5*height;
+	    const boardY = [this.tiles.list].map(tiles => 0.5*(tiles[0].y + tiles[tiles.length-1].y))[0];
+	    abilities.y = abilities.y - offsetY + boardY;
 	});
 	const promises = abilities.list.map(ability => new Promise(resolve => { // Animate
 	    this.scene.tweens.add({
-		targets: ability,
+		targets: ability.setAlpha(0.5),
 		scale: {from: 0, to: ability.baseScale},
 		duration: 1000,
 		ease: 'Quint.Out',
 		onComplete: resolve,
-	    })
+	    });
 	}));
 	await Promise.all(promises);
 	
 	return abilities;
     }
     async makeAbilities() {
-	this.abilities = await this.makeAbilitiesCore(true);
+	this.abilities = await this.makeAbilitiesCore('me');
 	return this;
     }
     async makeOpponentAbilities() {
 	this.opponentAbilities = await this.makeAbilitiesCore('opponent');
 	return this;
     }
+    // .........................................................................
+    setStepCounter(steps, inputColor) {
+	const color = (typeof inputColor === 'string')
+	      ? parseInt(inputColor.replace('#', ''), 16) : inputColor;
+	
+	if (this.stepCounter) {
+	    const stepCounter = this.stepCounter;
+	    this.scene.tweens.add({
+		targets: stepCounter,
+		alpha: 0,
+		duration: 1000,
+		ease: 'Quint.Out',
+		onComplete: () => stepCounter.destroy(),
+	    });
+	}
+	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	const {width, height} = this.scene.scale;
+	const x = 0;
+	const y = [this.tiles.list].map(tiles => tiles[tiles.length-1].y + 100)[0];
+	
+	const background = this.makeSprite('stepCounter', x, y).setTint(color);	
+	const text = this.scene.addText(x, y, steps).setTint(0xffffff);
+
+	const container = this.scene.add.container(this.tiles.x, this.tiles.y).add([background, text]);
+	container.list.forEach(thing => {
+	    this.scene.tweens.add({
+		targets: thing,
+		...(this.stepCounter)? {alpha: {from: 0, to: 1}} : {scale: {from: 0, to: thing.scale}},
+		duration: 1000,
+		ease: 'Quint.Out',
+	    });
+	});
+	
+	this.stepCounter = container;
+	return this;
+    }
     makeSelects() {
-	const selects = this.scene.add.container();
+	const selects = this.scene.add.container(this.tiles.x, this.tiles.y);
 	this.tiles.list.forEach((tile, i) => {
 	    const select = this.makeSprite('select', tile.x, tile.y).setAlpha(0.0).setInteractive();
 	    //select.baseScale = select.scale;
 	    //const baseScale = select.scale;
 	    const [row, col] = [Math.floor(i / this.ncols), i % this.ncols];
 	    select.on('pointerover', () => {
-		// this.scene.tweens.killTweensOf(select);
+		this.scene.tweens.killTweensOf(select);
 		this.scene.tweens.add({
 		    targets: select,
 		    scale: 1.2*select.baseScale,
@@ -674,21 +748,23 @@ class GameUI {
 		duration: 1000,
 		ease: 'Quint.InOut',
 		onComplete: resolve,
-	    })
+	    });
 	});
-    }    
+    }
     async replaceTile([row, col], tileType, transform = () => {}) {
 	const i = row*this.ncols + col;
 	const oldTile = this.tiles.list[i];
-	const newTile = this.makeSprite(tileType);
+	const newTile = this.makeSprite(tileType).setPosition(oldTile.x, oldTile.y);
 	transform(newTile);
 
 	this.tiles.remove(oldTile);
 	this.tiles.addAt(newTile, i);
 
+	oldTile.setPosition(oldTile.x + this.tiles.x, oldTile.y + this.tiles.y);
+
 	await new Promise(resolve => { // Animate replacement
 	    this.scene.tweens.add({
-		targets: newTile.setPosition(oldTile.x, oldTile.y),
+		targets: newTile, //.setPosition(oldTile.x, oldTile.y),
 		alpha: {from: 0, to: newTile.alpha},
 		scale: {
 		    from: newTile.scale * oldTile.displayHeight / newTile.displayHeight,
@@ -765,7 +841,7 @@ class GameUI {
 	    case 'select':
 		return this.scene.add.sprite(x, y, 'select').setTint(0x44ff44).setDisplaySize(50, 50);	    
 	    case 'backclick':
-		const {height, width} = this.scene.scale;
+		const {width, height} = this.scene.scale;
 		return this.scene.add.sprite(0.5*width, 0.5*height, 'square').setDisplaySize(width, height);
 	    case 'pass':
 		return this.scene.add.sprite(x, y, 'pass').setDisplaySize(50, 50);
@@ -775,8 +851,8 @@ class GameUI {
 		return this.scene.add.sprite(x, y, 'wall').setDisplaySize(50, 50);
 	    case 'spawnLava':
 		return this.scene.add.sprite(x, y, 'lava').setDisplaySize(50, 50);
-//	    case 'explodeBomb':
-//		return this.scene.add.sprite(x, y, 'bomb').setDisplaySize(50, 50);
+	    case 'stepCounter':
+		return this.scene.add.sprite(x, y, 'select').setDisplaySize(75, 75);
 	    default:
 		return;
 	    }

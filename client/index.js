@@ -156,7 +156,7 @@ async function startGame(server, myId, opponentId) {
     })[0];
     
     const game = await new Game().initialize({
-	nrows: 11 , ncols: 11,
+	nrows: 9 , ncols: 9,
 	me: {name: myName, color: color1},
 	opponent: {name: opponentName, color: color2},
     });

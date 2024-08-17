@@ -12,4 +12,7 @@ export class Dict {
     keys() {
 	return Object.keys(this.dict).map(strKey => JSON.parse(strKey));
     }
+    values() {
+	return this.keys().map(key => this.get(key));
+    }
 }
