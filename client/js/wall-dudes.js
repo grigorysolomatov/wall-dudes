@@ -621,10 +621,10 @@ class GameUI {
 	const abilities = this.scene.add.container(this.tiles.x, this.tiles.y);
 	abilities.add([
 	    makeAbility('pass'),
-	    makeBomb('empty', 'wall'),
 	    makeBomb('empty', 'lava'),
-	    makeBomb('wall', 'empty'),
+	    makeBomb('empty', 'wall'),
 	    makeBomb('wall', 'lava'),
+	    makeBomb('wall', 'empty'),
 	    makeBomb('lava', 'wall'),
 	    makeBomb('lava', 'empty'),
 	]);
