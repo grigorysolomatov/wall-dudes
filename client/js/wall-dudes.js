@@ -805,6 +805,7 @@ class GameUI {
 
 	const [sprite1, sprite2] = [type1, type2]
 	      .map(type => this.makeSprite(type, 0, 0).setOrigin(0))
+	      .map(sprite => sprite.setTint(0xffffff))
 	      .map(sprite => sprite.setScale(0.5*magnify*sprite.baseScale))
 	      .map(sprite => sprite.setDisplaySize(0.5*frame.displayWidth, 0.5*frame.displayHeight));
 
@@ -833,7 +834,7 @@ class GameUI {
 	    case 'wall':
 		return this.scene.add.sprite(x, y, 'wall').setDisplaySize(50, 50);
 	    case 'lava':
-		return this.scene.add.sprite(x, y, 'lava').setDisplaySize(45, 45);
+		return this.scene.add.sprite(x, y, 'lava').setDisplaySize(45, 45).setTint(0xcccccc);
 	    case 'player0':
 		return this.scene.add.sprite(x, y, 'wall-dude').setTint(0xffff00).setDisplaySize(45, 45);
 	    case 'player1':
