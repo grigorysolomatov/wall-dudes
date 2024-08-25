@@ -15,7 +15,8 @@ export class MemStorage {
 	return this;
     }
     set(dict) {
-	this.memory = {...this.memory, ...dict};
+	Object.assign(this.memory, dict)
+	// this.memory = {...this.memory, ...dict};
 	storage.set(this.memory);
 	return this;
     }

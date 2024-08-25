@@ -7,6 +7,11 @@ export class Dict {
     }
     set(key, value) {
 	this.dict[JSON.stringify(key)] = value;
+	if (value === undefined) { this.remove(key); } // Hack?
+	return this;
+    }
+    remove(key) {
+	delete this.dict[JSON.stringify(key)];
 	return this;
     }
     keys() {

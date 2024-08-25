@@ -65,6 +65,9 @@ function main() {
 	      },
 	      disconnect: (caller) => {
 		  delete clients[caller.id];
+		  Object.keys(exchangeData) // Cancel all unresolved exchanges: avoid messing up reconnect
+		      .filter(key => key.includes(caller.id))
+		      .forEach(key => delete exchangeData[key][caller.id]);
 	      },
 	      echo: (caller, ...args) => {
 		  const callback = args.pop();
