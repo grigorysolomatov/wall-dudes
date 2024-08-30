@@ -295,6 +295,7 @@ class Main {
 	const server = this.server;
 	const memory = this.memory;
 	const storage = this.storage;
+	const popup = this.html.popup;
 	// ---------------------------------------------------------------------
 	const choice = await popup.show(
 	    `<h3>${message}</h3>`,
@@ -303,21 +304,30 @@ class Main {
 	).value();
 	
 	if (choice === 'rematch') {
-	    const opponentChoice = await server.message('exchange', memory.game.opponent.id, choice);
-	    if (opponentChoice === 'rematch') {
+	    const response = await Promise.race([
+		popup.show(
+		    `<h3>Waiting for opponent...</h3>`,
+		    `<button onclick="popup.resolve('cancel')">Leave</button>`,
+		).value(),
+		server.message('exchange', memory.game.opponent.id, choice),
+	    ]); popup.resolve();
+	    
+	    if (response === 'rematch') {
 		memory.game.history = [];
 		storage.write(memory);
 		await this.startGame();
 		return this;
 	    }
-	    else {
+	    else if (response === 'leave') {
 		await popup.show(
 		    `<h3>Opponent left</h3>`,
 		    `<button onclick="popup.resolve()">OK</button>`,
 		).value();
 	    }
 	}
-	else {server.message('exchange', memory.game.opponent.id, choice);}
+	else if (choice === 'leave') {
+	    server.message('exchange', memory.game.opponent.id, choice);
+	}
 	memory.game = {
 	    history: [],
 	    opponent: {
