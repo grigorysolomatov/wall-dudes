@@ -331,9 +331,10 @@ class Main {
     }
 }
 // -----------------------------------------------------------------------------
-await new Main().runLoop();
-// while (true) {
-//     try { await new Main().runLoop(); }
-//     catch { localStorage.clear(); }
-// }
+// await new Main().runLoop();
+while (true) {
+    try { await new Main().runLoop(); }
+    catch { localStorage.clear(); }
+}
+
 
