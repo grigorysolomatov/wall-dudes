@@ -31,8 +31,9 @@ export class StyledPopup {
 
 	inner.classList.add(this.inner);
 	outer.classList.add(this.outer)
-
-	setTimeout(() => outer.classList.add(this.visible), 0);
+	
+	outer.offsetHeight; // Hack: force reflow
+	outer.classList.add(this.visible);
 
 	this.hide = () => {
 	    outer.addEventListener('transitionend', () => outer.remove());
@@ -48,8 +49,8 @@ export class StyledPopup {
 	}, 100); // Hack
 	return this;
     }
-    value() {
-	return new Promise(resolve => {
+    async value() {
+	return await new Promise(resolve => {
 	    this.resolve = (value) => {
 		this.hide();
 		this.resolve = null;

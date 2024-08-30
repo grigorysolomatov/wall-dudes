@@ -1,59 +1,78 @@
+const TODOS = () => {
+    const todos = [
+	"* BUGS",
+	"- Leaving game breaks finding random opponent",
+	"* TODOS",
+	"- Enable resignation",
+	"- Alternate first turn when rematch",
+	"- Await opponent when chosing rematch",
+	"- Deal with .recall('secretId', 'name', 'opponentId', 'gameLog', 'opponentName', 'myIdx')",
+	"- Make Rematch/Leave better: need a nice system, related to above point",	
+    ].join('\n');
+    console.log(todos);
+}; // TODOS();
+
 import { Server } from './js/reusable/server.js';
 import { PageFlip, includeHtml, StyledPopup, Tabs } from './js/reusable/html.js';
 import { randomName } from './js/random-name.js';
-import { MemStorage } from './js/reusable/memory.js';
 import { EventStream } from './js/reusable/events.js';
 import { Game } from './js/wall-dudes.js';
 import { timeout } from './js/reusable/async.js'; // Need?
+import { StoredObject } from './js/reusable/stored-object.js';
 
 // localStorage.clear();
+// console.log(localStorage)
 
 class Main {
+    async runLoop() {
+	while (true) { await this.run(); }
+    }
     async run() {
-	// Mandatory initial setup ---------------------------------------------
-	this.setupMemStorage();
-	await this.setupHtml();
+	// Initial setup -------------------------------------------------------
+	this.setupMemoryAndStorage();
+	const memory = this.memory;
+	
+	await this.setupHtml(); this.html.tabs.to('page-home');
 	await this.setupServer();
-
 	['button-change-name'].map(id => { // Subscribe
 	    document.getElementById(id).addEventListener('click', async () => await this.changeName());
 	});
-
-	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	const opponentId = await new Promise(async resolve => {
-	    const storedOpponentId = this.memstorage.get('opponentId');
-	    if (storedOpponentId) { resolve(storedOpponentId); return; }
-	    // -----------------------------------------------------------------
-	    const receivedOpponentId = await this.getRandomOpponent();
-	    resolve(receivedOpponentId); return;
-	});
-	this.startGame(opponentId);
-	return;
-	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-	// Input stream (ugly crap, deletable?) --------------------------------
-	const buttonSubs = [...document.querySelectorAll('.stream')]
-	      .map(element => handler => element.addEventListener('click', handler, {once: true}));
-	new EventStream(buttonSubs).iterate(async event => {
-	    // if (event.target.id === 'button-change-name') { await this.changeName(); }
-	    if (event.target.id === 'button-play-random') { await this.playRandom(); }
-	});
+	// Get opponent and play -----------------------------------------------
+	memory.game.opponent.id = memory.game.opponent.id || await this.getRandomOpponent();
+	this.storage.write(memory);
+	await this.startGame();
+	// After game ----------------------------------------------------------
+	this.setQueueStatus('idle');	
     } // Entry point
     // Setup -------------------------------------------------------------------
-    setupMemStorage() {
-	const memstorage = new MemStorage()
-	      .setDefaults({secretId: uuidv4(), name: randomName()})
-	      .recall('secretId', 'name', 'opponentId', 'gameLog', 'opponentName', 'myIdx');
-	// TODO. don't dump all stuff into recall. 
-	// ---------------------------------------------------------------------
-	this.memstorage = memstorage;
+    setupMemoryAndStorage() {
+	this.storage = new StoredObject('storage')
+	    .withDefaults({
+		id: {
+		    secret: uuidv4(),
+		    shared: null,
+		},
+		name: randomName(),
+		game: {
+		    history: [],
+		    opponent: {
+			id: null,
+			name: null,
+		    },
+		    myIdx: null,
+		},
+	    });
+	this.memory = this.storage.read();
+
 	return this;
     }
     async setupHtml() {
-	const memstorage = this.memstorage;
+	const memory = this.memory;
+	// ---------------------------------------------------------------------
+	if (this.skipHtmlSetup) { return this; } else { this.skipHtmlSetup = true; } // Don't setup many times	
 	// ---------------------------------------------------------------------
 	await includeHtml({selector: '.include', attribute: 'from'});
-	document.getElementById('view-client-name').textContent = memstorage.get('name');
+	document.getElementById('view-client-name').textContent = memory.name;
 	const popup = new StyledPopup({outer: 'popup-outer', inner: 'popup-inner', visible: 'popup-visible'});
 	const tabs = new Tabs({containerId: 'tabs-main', tabClass: 'tab', openClass: 'tab-open'})
 	      .add({label: 'Home', destId: 'page-home'},
@@ -61,33 +80,49 @@ class Main {
 		   {label: 'Rules', destId: 'page-rules'})
 	      .setSelector('.page').to('page-home');
 	// ---------------------------------------------------------------------
-	window.popup = popup;
+	window.popup = popup;	
 	// ---------------------------------------------------------------------
 	this.html = {popup, tabs};
 	return this;
-	// return {popup, tabs};
     }
     async setupServer() {
-	const memstorage = this.memstorage;
+	const memory = this.memory;
 	// ---------------------------------------------------------------------
 	const server = new Server(io());
-	const publicId = await server.message('register', memstorage.get('secretId'));
-	await server.message('update', {name: memstorage.get('name'), wantToPlay: false});
+	memory.id.shared = await server.message('register', memory.id.secret);
+	await server.message('update', {name: memory.name, wantToPlay: false});
 	// ---------------------------------------------------------------------
 	this.server = server;
-	this.publicId = publicId;
+	this.storage.write(memory);
 	return this;
     }
-    // Handlers ----------------------------------------------------------------
+    // Do stuff ----------------------------------------------------------------    
+    setQueueStatus(status) {
+	if (status === 'searching') {
+	    document.getElementById('view-play-status').textContent = 'searching';
+	    document.getElementById('button-play-random').style.display = 'none';
+	    document.getElementById('button-stop-play-random').style.display = 'inline-block';
+	}
+	if (status === 'idle') {
+	    document.getElementById('view-play-status').textContent = 'idle';
+	    document.getElementById('button-stop-play-random').style.display = 'none';
+	    document.getElementById('button-play-random').style.display = 'inline-block';
+	}
+	if (status === 'game') {
+	    document.getElementById('view-play-status').textContent = 'in game';
+	    document.getElementById('button-stop-play-random').style.display = 'none';
+	    document.getElementById('button-play-random').style.display = 'none';
+	}
+    }
     async changeName() {
 	const popup = this.html.popup;
-	const memstorage = this.memstorage;
 	const server = this.server;
+	const memory = this.memory;
 	// ---------------------------------------------------------------------
-	const name  = await [popup].map(async popup => {
+	memory.name = await [popup].map(async popup => {
 	    popup.show(
 		`<h3>New name</h3>`,
-		`<input id="input-edit-name" value="${memstorage.get('name')}"></input>`,
+		`<input id="input-edit-name" value="${memory.name}"></input>`,
 		`<button id="button-edit-name">OK</button>`,
 	    );
 	    // .................................................................
@@ -106,20 +141,18 @@ class Main {
 	    });
 	    return await popup.value();
 	})[0];
-	memstorage.set({name});
-	document.getElementById('view-client-name').textContent = memstorage.get('name');
+	document.getElementById('view-client-name').textContent = memory.name;
 	// ---------------------------------------------------------------------
-	await server.message('update', {name: memstorage.get('name')});
+	await server.message('update', {name: memory.name});
+	this.storage.write(memory);
 	return this;
     }
-    // Opponent ----------------------------------------------------------------
     async tryGetRandomOpponent() {
-	const memstorage = this.memstorage;
 	const server = this.server;
-	const publicId = this.publicId;
+	const memory = this.memory;
 	const {popup, tabs} = this.html;
 	// ---------------------------------------------------------------------
-	if (memstorage.get('opponentId')) { // Return if in game
+	if (memory.game.opponent.id) { // Return if in game
 	    //tabs.to('page-game');
 	    await popup.show(
 		`<h3>Already in game</h3>`,
@@ -127,16 +160,18 @@ class Main {
 	    ).value();
 	    return;
 	}
-	await server.message('update', {wantToPlay: true}); { // Update UI
-	    document.getElementById('view-play-status').textContent = 'searching';
-	    document.getElementById('button-play-random').style.display = 'none';
-	    document.getElementById('button-stop-play-random').style.display = 'inline-block';
+	await server.message('update', {wantToPlay: true});
+	this.setQueueStatus('searching'); { // DELETE BLOCK
+	    // this.setQueueStatus('searching');
+	    // document.getElementById('view-play-status').textContent = 'searching';
+	    // document.getElementById('button-play-random').style.display = 'none';
+	    // document.getElementById('button-stop-play-random').style.display = 'inline-block';
 	}
 
 	const promisedInviteeId = new Promise(async resolve => { // Invite
 	    const profiles = await server.message('profiles');
 	    const inviteeIds = Object.keys(profiles).filter(id => { // Wants to play & is not self
-		return profiles[id].wantToPlay && id !== publicId;
+		return profiles[id].wantToPlay && id !== memory.id.shared;
 	    });
 
 	    for (const inviteeId of inviteeIds) {
@@ -173,15 +208,16 @@ class Main {
 		if (accept) {resolve(inviterId); return;}
 	    }
 	});
-	const promisedCancel = new Promise(async resolve => {
+	const promisedCancel = new Promise(async resolve => { // Cancel
 	    await new Promise(resolveInner => document
 			      .getElementById('button-stop-play-random')
 			      .addEventListener('click', resolveInner, {once: true}));
 
 	    await server.message('update', {wantToPlay: false});
-	    document.getElementById('view-play-status').textContent = 'idle';
-	    document.getElementById('button-stop-play-random').style.display = 'none';
-	    document.getElementById('button-play-random').style.display = 'inline-block';
+	    this.setQueueStatus('idle');
+	    //document.getElementById('view-play-status').textContent = 'idle';
+	    //document.getElementById('button-stop-play-random').style.display = 'none';
+	    //document.getElementById('button-play-random').style.display = 'inline-block';
 
 	    resolve(null);
 	});
@@ -195,72 +231,109 @@ class Main {
 	while (!opponentId) {
 	    await new Promise(resolve1 => button.addEventListener('click', resolve1, {once: true}));
 	    opponentId = await this.tryGetRandomOpponent();
-	}
+	}	
 	return opponentId;
     }
-    // Game --------------------------------------------------------------------
-    async startGame(opponentId) {
+    async startGame() {
+	// TODO: clean up in here
+	// ---------------------------------------------------------------------
+	if (this.game) {this.game.destroy(); this.game = null;}
+	this.setQueueStatus('game');
+	// ---------------------------------------------------------------------
+	const memory = this.memory;
 	const server = this.server;
-	const memstorage = this.memstorage;
-	const myId = this.publicId;
 	const tabs = this.html.tabs;
 	// ---------------------------------------------------------------------
 	await server.message('update', {wantToPlay: false});
-	memstorage.set({opponentId});
 	tabs.to('page-game');
-	// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	// await server.message('exchange', opponentId, {inGame: false});
-	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	const myName = memstorage.get('name');
-	const gameLog = memstorage.get('gameLog') || [];
-	// console.log('Loaded:', gameLog.map(td => td.ability))
-	const opponentName = memstorage.get('opponentName')
-	      || await server.message('exchange', opponentId, myName);
-	memstorage.set({opponentName});
-	const myIdx = memstorage.get('myIdx') ??
-	      await [Math.floor(Math.random()*2)].map(async myNum => {
-		  const hisNum = await server.message('exchange', opponentId, myNum);
-		  const sortedIds = [myId, opponentId].sort();
-		  const playerIds = ((myNum + hisNum) % 2) ? sortedIds : sortedIds.reverse();
-		  const myIdx = playerIds.indexOf(myId);
-		  return myIdx;
-	      })[0];
-	memstorage.set({myIdx});	
-	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++	
-	let myTurnFirst = myIdx === 0;
+	// ---------------------------------------------------------------------
+	const gameLog = memory.game.history;
+	memory.game.opponent.name = memory.game.opponent.name ||
+	    await server.message('exchange', memory.game.opponent.id, memory.name);
+	memory.game.myIdx = memory.game.myIdx ??
+	    await [Math.floor(Math.random()*2)].map(async myNum => {
+		const hisNum = await server.message('exchange', memory.game.opponent.id, myNum);		
+		const sortedIds = [memory.id.shared, memory.game.opponent.id].sort();
+		const playerIds = ((myNum + hisNum) % 2) ? sortedIds : sortedIds.reverse();
+		const myIdx = playerIds.indexOf(memory.id.shared);
+		return myIdx;
+	    })[0];
+	// ---------------------------------------------------------------------
+	this.storage.write(memory);
+	let myTurnFirst = memory.game.myIdx === 0;
 	const [color1, color2] = [myTurnFirst].map(myTurnFirst => {
 	    let [color1, color2] = ['#ffff00', '#00aaff'];
 	    if (!myTurnFirst) {[color1, color2] = [color2, color1]}
 	    return [color1, color2];
 	})[0];
 	// -------------------------------------------------------------------------
-	// console.log('INITIALIZING')
 	const game = await new Game().initialize({
 	    nrows: 9 , ncols: 9,
-	    me: {name: myName, color: color1},
-	    opponent: {name: opponentName, color: color2},
+	    me: {name: memory.name, color: color1},
+	    opponent: {name: memory.game.opponent.name, color: color2},
 	    history: JSON.parse(JSON.stringify(gameLog)), // Ugly
-	});
+	    myIdx: memory.game.myIdx,
+	}); this.game = game; // Ugly?	
 	const exchange = async turnData => {
+	    // TODO: make own method?
 	    const message = {turnData, inGame: true};
-	    const response = await server.message('exchange', opponentId, message);
+	    const response = await server.message('exchange', memory.game.opponent.id, message);
 	    // Check if in sync ------------------------------------------------
-	    if (!response.inGame) {
-		console.log('Opponent out of sync!');
-		return;
-	    }
+	    if (!response.inGame) { console.log('Opponent out of sync!'); return; } // Need this?
 	    // Log and store exchanged moves -------------------------------
 	    const deepCopy = obj => JSON.parse(JSON.stringify(obj));
-	    gameLog.push(deepCopy(message.turnData || response.turnData));
-	    memstorage.set({gameLog});
-	    // console.log(gameLog.map(td => td.ability))
+	    memory.game.history.push(deepCopy(message.turnData || response.turnData));
+	    this.storage.write(memory);
 	    // -------------------------------------------------------------
 	    return response.turnData;
 	};
-	await game.play(myIdx, exchange);
+	await game.play(exchange, async message => this.gameOverDialogue(message));
 	// ---------------------------------------------------------------------
+	return this;
+    }
+    async gameOverDialogue(message) {
+	const server = this.server;
+	const memory = this.memory;
+	const storage = this.storage;
+	// ---------------------------------------------------------------------
+	const choice = await popup.show(
+	    `<h3>${message}</h3>`,
+	    `<button onclick="popup.resolve('rematch')">Rematch</button>`,
+	    `<button onclick="popup.resolve('leave')">Leave</button>`,
+	).value();
+	
+	if (choice === 'rematch') {
+	    const opponentChoice = await server.message('exchange', memory.game.opponent.id, choice);
+	    if (opponentChoice === 'rematch') {
+		memory.game.history = [];
+		storage.write(memory);
+		await this.startGame();
+		return this;
+	    }
+	    else {
+		await popup.show(
+		    `<h3>Opponent left</h3>`,
+		    `<button onclick="popup.resolve()">OK</button>`,
+		).value();
+	    }
+	}
+	else {server.message('exchange', memory.game.opponent.id, choice);}
+	memory.game = {
+	    history: [],
+	    opponent: {
+		    id: null,
+		    name: null,
+		},
+	};
+	storage.write(memory);
+	
 	return this;
     }
 }
 // -----------------------------------------------------------------------------
-new Main().run();
+await new Main().runLoop();
+// while (true) {
+//     try { await new Main().runLoop(); }
+//     catch { localStorage.clear(); }
+// }
+

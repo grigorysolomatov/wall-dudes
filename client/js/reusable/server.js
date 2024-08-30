@@ -1,6 +1,6 @@
-function timeout(ms, value) {
-    return new Promise(resolve => setTimeout(() => resolve(value), ms));
-}
+// function timeout(ms, value) {
+//     return new Promise(resolve => setTimeout(() => resolve(value), ms));
+// }
 
 export class Server {
     constructor(socket) {
@@ -14,7 +14,8 @@ export class Server {
 	keys.forEach(key => this.socket.removeAllListeners(key));
 	return this;
     }
-    async message(messageName, ...args) {
-	return new Promise(resolve => this.socket.emit(messageName, ...args, resolve));
+    async message(messageName, ...args) {	
+	const response = await new Promise(resolve => this.socket.emit(messageName, ...args, resolve));	
+	return response;
     }
 }
