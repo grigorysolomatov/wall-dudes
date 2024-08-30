@@ -334,7 +334,7 @@ class Main {
 // await new Main().runLoop();
 while (true) {
     try { await new Main().runLoop(); }
-    catch { localStorage.clear(); }
+    catch (error) { console.log(error); localStorage.clear(); }
 }
 
 
