@@ -310,7 +310,7 @@ class Main {
 		    `<button onclick="popup.resolve('cancel')">Leave</button>`,
 		).value(),
 		server.message('exchange', memory.game.opponent.id, choice),
-	    ]); popup.resolve();
+	    ]); popup.resolve?.();
 	    
 	    if (response === 'rematch') {
 		memory.game.history = [];
@@ -341,10 +341,8 @@ class Main {
     }
 }
 // -----------------------------------------------------------------------------
-// await new Main().runLoop();
-while (true) {
-    try { await new Main().runLoop(); }
-    catch (error) { console.log(error); localStorage.clear(); }
-}
-
-
+await new Main().runLoop();
+// while (true) {
+//     try { await new Main().runLoop(); }
+//     catch (error) { console.log(error); localStorage.clear(); }
+// }
