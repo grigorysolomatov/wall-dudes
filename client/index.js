@@ -161,12 +161,7 @@ class Main {
 	    return;
 	}
 	await server.message('update', {wantToPlay: true});
-	this.setQueueStatus('searching'); { // DELETE BLOCK
-	    // this.setQueueStatus('searching');
-	    // document.getElementById('view-play-status').textContent = 'searching';
-	    // document.getElementById('button-play-random').style.display = 'none';
-	    // document.getElementById('button-stop-play-random').style.display = 'inline-block';
-	}
+	this.setQueueStatus('searching');
 
 	const promisedInviteeId = new Promise(async resolve => { // Invite
 	    const profiles = await server.message('profiles');
@@ -273,7 +268,7 @@ class Main {
 	    opponent: {name: memory.game.opponent.name, color: color2},
 	    history: JSON.parse(JSON.stringify(gameLog)), // Ugly
 	    myIdx: memory.game.myIdx,
-	}); this.game = game; // Ugly?	
+	}); this.game = game; // Ugly?
 	const exchange = async turnData => {
 	    // TODO: make own method?
 	    const message = {turnData, inGame: true};
@@ -287,7 +282,26 @@ class Main {
 	    // -------------------------------------------------------------
 	    return response.turnData;
 	};
-	await game.play(exchange, async message => this.gameOverDialogue(message));
+	const comms = [null].map(_ => {
+	    const subscribe = (event, handler, onType) => server.socket[onType](event, (id, ...args) => {
+		const callback = args.pop();
+		if (id !== memory.game.opponent.id) {callback({error: 'dontTalkToMe'}); return;}
+		handler(...args);
+	    });
+	    const comms = {
+		send: async (event, ...args) => await server.message(
+		    'relay', memory.game.opponent.id, event, ...args),
+		on: (event, handler) => subscribe(event, handler, 'on'),
+		once: (event, handler) => subscribe(event, handler, 'once'),
+		off: (event, handler) => subscribe(event, handler, 'off'),
+	    };
+	    return comms;
+	})[0];
+	await game.play({
+	    exchange,
+	    gameOver: async message => this.gameOverDialogue(message),
+	    comms,
+	});
 	// ---------------------------------------------------------------------
 	return this;
     }

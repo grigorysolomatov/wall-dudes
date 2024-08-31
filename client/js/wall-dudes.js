@@ -34,7 +34,7 @@ class MainScene extends Phaser.Scene {
 
 	this.load.image('pass', './js/game-assets/pass.svg');
 	// this.load.image('bomb', './js/game-assets/bomb.svg');
-	this.load.image('resign', './js/game-assets/resign.svg');
+	this.load.image('resign', './js/game-assets/resign.png');
     }
     create() {
 	this.onCreate();
@@ -92,19 +92,21 @@ export class Game {
 	    this.ui.replaceTiles(this.logic.tiles),
 	    this.ui.makeDudes(this.logic.dudes),
 	    this.ui.makeMyAbilities(this.logic.abilities[`player${myIdx}`]),
-	    this.ui.makeOpponentAbilities(this.logic.abilities[`player${1-myIdx}`]),
+	    this.ui.makeOpponentAbilities(this.logic.abilities[`player${1-myIdx}`]),	    
 	]);
 
 	return this;
     }
-    async play(exchange, gameOver) {
+    async play({exchange, gameOver, comms}) {
 	const myIdx = this.myIdx;
+	this.ui.resignButton.once('pointerup', () => comms.send('resign'));
+	
 	const myTurn = [myIdx].map(myIdx => {
 	    const myTurnFirst = myIdx === 0;
 	    const numPasses = this.history.filter(turnData => turnData.ability === 'pass').length;
 	    return ((myTurnFirst + numPasses) % 2) == 1;
 	})[0];
-	const states = new UIStates({game: this, myIdx, exchange, gameOver}).allStates();
+	const states = new UIStates({game: this, myIdx, exchange, gameOver, comms}).allStates();
 	await new CompStateMachine(states).run({
 	    start: (myTurn)? 'startOrResumeTurn': 'startAwaitOpponent',
 	    context: this.history[this.history.length-1] || {}, // turnData
@@ -243,9 +245,10 @@ class GameUI {
     async initialize({nrows, ncols, me, opponent, intro=true}) {
 	// this.makeTransformTiles('empty', 'lava').setOrigin(0.5).x = 0;
 	await this.makeTitle({me, opponent, intro});
-	await this.makeTiles(nrows, ncols);
-
+	await this.makeTiles(nrows, ncols);	
 	this.makeBackclick();
+	await this.setStepCounter(3, 0x444444);
+	await this.makeResignButton();	
 	this.makeSelects();
 
 	this.nrows = nrows;
@@ -516,6 +519,45 @@ class GameUI {
 	this.stepCounter = container;
 	return this;
     }
+    async makeResignButton() {
+	const tiles = this.tiles.list;
+	const [tileFirst, tileLast] = [tiles[0], tiles[tiles.length-1]];
+	const resignButton = this.makeSprite(
+	    'resign',
+	    this.tiles.x + tileFirst.x + 0.5*tileFirst.displayWidth,
+	    this.tiles.y + tileLast.y + 100,
+	).setInteractive();
+	resignButton.x += 0.5*resignButton.displayWidth;
+
+	// Animations ----------------------------------------------------------
+	resignButton.on('pointerover', () => {
+	    this.scene.tweens.add({
+		targets: resignButton,
+		alpha: 1.0,
+		scale: 1.1*resignButton.baseScale,
+		duration: 600,
+		ease: 'Quint.Out',
+	    });
+	});
+	resignButton.on('pointerout', () => {
+	    this.scene.tweens.add({
+		targets: resignButton,
+		alpha: 0.5,
+		scale: resignButton.baseScale,
+		duration: 600,
+		ease: 'Quint.Out',
+	    });
+	});
+	this.scene.tweens.add({
+	    targets: resignButton,
+	    scale: {from: 0, to: resignButton.scale},
+	    duration: 1000,
+	    ease: 'Quint.Out',
+	});
+	// ---------------------------------------------------------------------
+	this.resignButton = resignButton;
+	return this;
+    }
     // Helpers -----------------------------------------------------------------
     async placeSprite([row, col], sprite, onComplete) {
 	const tile = this.tiles.list[row*this.ncols + col];
@@ -646,7 +688,14 @@ class GameUI {
 	    case 'pass':
 		return this.scene.add.sprite(x, y, 'pass').setDisplaySize(50, 50);
 	    case 'resign':
-		return this.scene.add.sprite(x, y, 'resign').setDisplaySize(50, 50);
+		return  [this.scene.add.sprite(x, y, 'resign')].map(sprite => {
+		    const height = 45;
+		    return sprite
+			.setDisplaySize(sprite.displayWidth*height/sprite.displayHeight, height)
+			.setTint(0xff4444)
+			.setAlpha(0.5)
+			.setDepth(1);
+		})[0];
 	    case 'stepCounter':
 		return this.scene.add.sprite(x, y, 'select').setDisplaySize(75, 75);
 	    default:
@@ -789,14 +838,15 @@ class GameLogic {
     }
 }
 class UIStates {
-    constructor({game, myIdx, exchange, gameOver}) {
+    constructor({game, myIdx, exchange, gameOver, comms}) {
 	this.game = game;
-	this.exchange = exchange;
+	this.exchange = exchange;	
 	this.myIdx = myIdx;
 	this.gameOver = gameOver;
+	this.comms = comms;
     }
     standardStates() {
-	const {game, exchange, gameOver, myIdx} = this;
+	const {game, exchange, gameOver, myIdx, comms} = this;
 
 	const getChoice = async ({turnData, options}) => {
 	    const positions = (turnData.origin)? game.logic.getMoves(turnData.origin) : [];
@@ -809,6 +859,14 @@ class UIStates {
 		    {backclick: await game.selectBackclick() || true})),
 		'target': () => new Promise(async resolve => resolve(
 		    {target: await game.selectTile(positions)})),
+		'resign': () => Promise.race([
+		    new Promise(resolve => {
+			game.ui.resignButton.once('pointerup', () => resolve({resign: myIdx}));
+		    }),
+		    new Promise(resolve => {
+			comms.once('resign', () => resolve({resign: 1-myIdx}));
+		    }),
+		]),
 	    };
 	    const choices = options.map(option => constructors[option]());
 	    game.ui.setStepCounter(turnData.steps, game.me.color);
@@ -821,11 +879,17 @@ class UIStates {
 
 	    return choice;
 	}
+	const onResign = async (turnData, playerIdx) => {
+	    turnData.ability = `resign-${playerIdx}`;
+	    await exchange(turnData);
+	    const resigneeName = (playerIdx === myIdx)? game.me.name : game.opponent.name;
+	    await gameOver(`${resigneeName} resigned`);	    
+	};
 	const states = {
 	    // My turn ---------------------------------------------------------
 	    startOrResumeTurn: async (turnData) => {
 		if (Object.keys(turnData).length === 0) { return 'startTurn'; }
-		if (turnData.steps === 3) { return 'startTurn'; } // Used to be 'selectDude'
+		if (turnData.steps === 3) { return 'startTurn'; }
 		if (turnData.steps < 3) {
 		    turnData.origin = turnData.target || turnData.origin;
 		    turnData.target = null;
@@ -863,7 +927,10 @@ class UIStates {
 	    },
 	    selectDude: async (turnData) => {
 		turnData.ability = 'moveDude';
-		const choice = await getChoice({turnData, options: ['dude', 'backclick']});
+		const choice = await getChoice({
+		    turnData,
+		    options: ['dude', 'backclick', 'resign'],
+		});
 
 		if (choice.backclick) {
 		    return 'selectDude';
@@ -874,12 +941,16 @@ class UIStates {
 		if (choice.ability) {
 		    return 'selectDude';
 		}
+		if (choice.resign !== undefined) {
+		    await onResign(turnData, choice.resign);
+		    return;
+		}
 
 		return turnData.ability;
 	    },
 	    moveDude: async (turnData) => {
 		turnData.ability = 'moveDude';
-		const options = ['backclick', 'target'];
+		const options = ['backclick', 'target', 'resign'];
 		options.push((turnData.steps===3)? 'dude' : 'ability');
 		const choice = await getChoice({turnData, options});
 
@@ -898,6 +969,10 @@ class UIStates {
 		    turnData.target = null;
 
 		    return (turnData.steps > 0)? 'moveDude' : 'pass';
+		}
+		if (choice.resign !== undefined) {
+		    await onResign(turnData, choice.resign);
+		    return;
 		}
 
 		return choice.ability;
@@ -936,6 +1011,12 @@ class UIStates {
 		if (turnData.ability.startsWith('lose')) {
 		    const statuses = turnData.ability.split('-').slice(1);
 		    await gameOver(`${game.opponent.name} got ${statuses.join(' and ')}!`);
+		    return;
+		}
+		if (turnData.ability.startsWith('resign')) {
+		    const playerIdx = turnData.ability.split('-').slice(1);
+		    const resigneeName = (playerIdx === myIdx)? game.me.name : game.opponent.name;
+		    await gameOver(`${resigneeName} resigned`);
 		    return;
 		}
 

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   height="104"
+   height="103.68797"
    version="1.2"
-   width="104"
+   width="235.75209"
    id="svg49"
    sodipodi:docname="resign.svg"
    inkscape:version="1.3.2 (091e20ef0f, 2023-11-25)"
-   viewBox="-1 -1 104 104"
+   viewBox="-1 -1 235.75209 103.68797"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -20,11 +20,11 @@
      inkscape:pageopacity="0"
      inkscape:pagecheckerboard="false"
      inkscape:deskcolor="#1e1e1e"
-     inkscape:zoom="3.7905003"
-     inkscape:cx="21.105393"
-     inkscape:cy="81.783399"
-     inkscape:window-width="1920"
-     inkscape:window-height="1080"
+     inkscape:zoom="2.392345"
+     inkscape:cx="43.889991"
+     inkscape:cy="124.14597"
+     inkscape:window-width="1916"
+     inkscape:window-height="1036"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -42,10 +42,10 @@
         <g
            id="g4">
           <rect
-             style="opacity:1;fill:#fffdff;fill-opacity:0.30000001;stroke:#ffffff;stroke-width:4;stroke-dasharray:none"
+             style="opacity:1;fill:#fffdff;fill-opacity:0.3;stroke:#ffffff;stroke-width:4;stroke-dasharray:none"
              id="rect1"
-             width="100"
-             height="100"
+             width="231.75209"
+             height="99.687965"
              x="0.5"
              y="0.5"
              rx="20"
@@ -54,22 +54,15 @@
       </g>
     </g>
   </g>
-  <g
-     id="g5"
-     transform="translate(-1.8704338,-12.5)">
-    <rect
-       style="fill:#ffffff;stroke-width:8.66025"
-       id="rect2"
-       width="40"
-       height="30"
-       x="32.870434"
-       y="36" />
-    <rect
-       style="fill:#ffffff;stroke-width:4.14577"
-       id="rect2-7"
-       width="5"
-       height="55"
-       x="32.870434"
-       y="36" />
-  </g>
+  <text
+     xml:space="preserve"
+     style="font-weight:bold;font-size:60px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold'"
+     x="16.136074"
+     y="70.443985"
+     id="text1"><tspan
+       sodipodi:role="line"
+       id="tspan1"
+       x="16.136074"
+       y="70.443985"
+       style="font-size:60px;fill:#ffffff;fill-opacity:1">Resign</tspan></text>
 </svg>
