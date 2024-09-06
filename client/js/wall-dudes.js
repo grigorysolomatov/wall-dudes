@@ -41,8 +41,10 @@ class MainScene extends Phaser.Scene {
     }
     addText(...args) {
 	const text = this.add.text(...args, {
-	    font: '32px Times New Roman',
+	    fontFamily: '"Margarine", sans-serif',
+            fontSize: '32px',
 	    fill: '#ffffff',
+	    // font: '32px Times New Roman',
 	}).setOrigin(0.5);
 	return text;
     }
@@ -668,36 +670,37 @@ class GameUI {
 	return combined;
     }
     makeSprite(type, x, y) {
+	const scene = this.scene;
+	// ---------------------------------------------------------------------
 	const sprite = [type].map(type => {
 	    switch (type) {
 	    case 'empty':
-		return this.scene.add.sprite(x, y, 'empty').setDisplaySize(45, 45).setAlpha(0.2);
+		return scene.add.sprite(x, y, 'empty').setDisplaySize(45, 45).setAlpha(0.2);
 	    case 'wall':
-		return this.scene.add.sprite(x, y, 'wall').setDisplaySize(50, 50);
+		return scene.add.sprite(x, y, 'wall').setDisplaySize(50, 50);
 	    case 'lava':
-		return this.scene.add.sprite(x, y, 'lava').setDisplaySize(45, 45).setTint(0xcccccc);
+		return scene.add.sprite(x, y, 'lava').setDisplaySize(45, 45).setTint(0xcccccc);
 	    case 'player0':
-		return this.scene.add.sprite(x, y, 'wall-dude').setTint(0xffff00).setDisplaySize(45, 45);
+		return scene.add.sprite(x, y, 'wall-dude').setTint(0xffff00).setDisplaySize(45, 45);
 	    case 'player1':
-		return this.scene.add.sprite(x, y, 'wall-dude').setTint(0x00aaff).setDisplaySize(45, 45);
+		return scene.add.sprite(x, y, 'wall-dude').setTint(0x00aaff).setDisplaySize(45, 45);
 	    case 'select':
-		return this.scene.add.sprite(x, y, 'select').setTint(0x44ff44).setDisplaySize(50, 50);
+		return scene.add.sprite(x, y, 'select').setTint(0x44ff44).setDisplaySize(50, 50);
 	    case 'backclick':
-		const {width, height} = this.scene.scale;
-		return this.scene.add.sprite(0.5*width, 0.5*height, 'square').setDisplaySize(width, height);
+		const {width, height} = scene.scale;
+		return scene.add.sprite(0.5*width, 0.5*height, 'square').setDisplaySize(width, height);
 	    case 'pass':
-		return this.scene.add.sprite(x, y, 'pass').setDisplaySize(50, 50);
+		return scene.add.sprite(x, y, 'pass').setDisplaySize(50, 50);
 	    case 'resign':
-		return  [this.scene.add.sprite(x, y, 'resign')].map(sprite => {
-		    const height = 45;
+		// scene.add.sprite(x, y, 'resign');
+		return  [scene.addText(x, y, 'Resign')].map(sprite => {
 		    return sprite
-			.setDisplaySize(sprite.displayWidth*height/sprite.displayHeight, height)
-			.setTint(0xff4444)
+			.setColor('#ff4444')
 			.setAlpha(0.5)
 			.setDepth(1);
 		})[0];
 	    case 'stepCounter':
-		return this.scene.add.sprite(x, y, 'select').setDisplaySize(75, 75);
+		return scene.add.sprite(x, y, 'select').setDisplaySize(75, 75);
 	    default:
 		return;
 	    }
