@@ -319,6 +319,7 @@ class Main {
 		    popup.show(
 			`<h3>Invite received from </h3>`,
 			`<h3>${inviterName}</h3>`,
+			`<hr>`,
 			`<button id="button-accept">Accept</button>`,
 			`<button id="button-decline">Decline</button>`,
 		    );
@@ -358,8 +359,9 @@ class Main {
 	const gameLog = memory.game.history;
 	memory.game.opponent.name = memory.game.opponent.name ||
 	    await server.message('exchange', memory.game.opponent.id, memory.name);
+	console.log(memory.game)
 	memory.game.myIdx = memory.game.myIdx ??
-	    await [Math.floor(Math.random()*2)].map(async myNum => {
+	    await [Math.floor(Math.random()*2)].map(async myNum => {	
 		const hisNum = await server.message('exchange', memory.game.opponent.id, myNum);		
 		const sortedIds = [memory.id.shared, memory.game.opponent.id].sort();
 		const playerIds = ((myNum + hisNum) % 2) ? sortedIds : sortedIds.reverse();
@@ -425,11 +427,14 @@ class Main {
 	const memory = this.memory;
 	const storage = this.storage;
 	// ---------------------------------------------------------------------
+	memory.game.history = [];
+	memory.game.myIdx = 1 - memory.game.myIdx;
+	
 	const choice = await popup.show(
 	    `<h3>${message}</h3>`,
 	    `<button onclick="popup.resolve('rematch')">Rematch</button>`,
 	    `<button onclick="popup.resolve('leave')">Leave</button>`,
-	).value();
+	).value();	
 	
 	if (choice === 'rematch') {
 	    const response = await Promise.race([
@@ -441,10 +446,8 @@ class Main {
 	    ]); popup.resolve?.();
 	    
 	    if (response === 'rematch') {
-		memory.game.history = [];
 		storage.write(memory);
-		await this.startGame();
-		return this;
+		await this.startGame(); return this;
 	    }
 	    else if (response === 'leave') {
 		await popup.show(
@@ -462,6 +465,7 @@ class Main {
 		    id: null,
 		    name: null,
 		},
+	    myIdx: null,
 	};
 	storage.write(memory);
 	
