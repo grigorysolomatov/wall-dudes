@@ -74,7 +74,7 @@ export class Game {
 	    const scene = new MainScene();
 	    new Phaser.Game({
 		width: 900,
-		height: 900,
+		height: 780,
 		backgroundColor: '#111111',
 		// .................................................................
 		parent: 'phaser-window',
