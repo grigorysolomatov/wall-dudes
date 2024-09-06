@@ -359,7 +359,6 @@ class Main {
 	const gameLog = memory.game.history;
 	memory.game.opponent.name = memory.game.opponent.name ||
 	    await server.message('exchange', memory.game.opponent.id, memory.name);
-	console.log(memory.game)
 	memory.game.myIdx = memory.game.myIdx ??
 	    await [Math.floor(Math.random()*2)].map(async myNum => {	
 		const hisNum = await server.message('exchange', memory.game.opponent.id, myNum);		
