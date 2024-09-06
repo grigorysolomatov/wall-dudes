@@ -1,13 +1,9 @@
 const TODOS = () => {
     const todos = [
 	"* BUGS",
-	"- Leaving game breaks finding random opponent",
+	"- Who goes first, is bugged? Assignment seems to stick across rematch",
 	"* TODOS",
-	"- Enable resignation",
 	"- Alternate first turn when rematch",
-	"- Await opponent when chosing rematch",
-	"- Deal with .recall('secretId', 'name', 'opponentId', 'gameLog', 'opponentName', 'myIdx')",
-	"- Make Rematch/Leave better: need a nice system, related to above point",	
     ].join('\n');
     console.log(todos);
 }; // TODOS();
@@ -15,13 +11,9 @@ const TODOS = () => {
 import { Server } from './js/reusable/server.js';
 import { PageFlip, includeHtml, StyledPopup, Tabs } from './js/reusable/html.js';
 import { randomName } from './js/random-name.js';
-import { EventStream } from './js/reusable/events.js';
 import { Game } from './js/wall-dudes.js';
-import { timeout } from './js/reusable/async.js'; // Need?
+import { timeout } from './js/reusable/async.js'; // Need? Nice for testing...
 import { StoredObject } from './js/reusable/stored-object.js';
-
-// localStorage.clear();
-// console.log(localStorage)
 
 class Main {
     async runLoop() {
@@ -38,12 +30,14 @@ class Main {
 	    document.getElementById(id).addEventListener('click', async () => await this.changeName());
 	});
 	// Get opponent and play -----------------------------------------------
-	memory.game.opponent.id = memory.game.opponent.id || await this.getRandomOpponent();
+	//await this.getOpponent();
+	while (!memory.game.opponent.id) { memory.game.opponent.id = await this.getOpponent(); }
+	// memory.game.opponent.id = memory.game.opponent.id || await this.getRandomOpponent();
 	this.storage.write(memory);
 	await this.startGame();
 	// After game ----------------------------------------------------------
-	this.setQueueStatus('idle');	
-    } // Entry point
+	// this.setQueueStatus('idle');	
+    }
     // Setup -------------------------------------------------------------------
     setupMemoryAndStorage() {
 	this.storage = new StoredObject('storage')
@@ -90,32 +84,14 @@ class Main {
 	// ---------------------------------------------------------------------
 	const server = new Server(io());
 	memory.id.shared = await server.message('register', memory.id.secret);
-	await server.message('update', {name: memory.name, wantToPlay: false});
+	await server.message('update', {name: memory.name, wantToPlayRandom: false});
 	// ---------------------------------------------------------------------
 	this.server = server;
 	this.storage.write(memory);
 	return this;
     }
     // Do stuff ----------------------------------------------------------------    
-    setQueueStatus(status) {
-	if (status === 'searching') {
-	    document.getElementById('view-play-status').textContent = 'searching';
-	    document.getElementById('button-play-random').style.display = 'none';
-	    document.getElementById('button-stop-play-random').style.display = 'inline-block';
-	}
-	if (status === 'idle') {
-	    document.getElementById('view-play-status').textContent = 'idle';
-	    document.getElementById('button-stop-play-random').style.display = 'none';
-	    document.getElementById('button-play-random').style.display = 'inline-block';
-	}
-	if (status === 'game') {
-	    document.getElementById('view-play-status').textContent = 'in game';
-	    document.getElementById('button-stop-play-random').style.display = 'none';
-	    document.getElementById('button-play-random').style.display = 'none';
-	}
-    }
     async changeName() {
-	const popup = this.html.popup;
 	const server = this.server;
 	const memory = this.memory;
 	// ---------------------------------------------------------------------
@@ -123,6 +99,7 @@ class Main {
 	    popup.show(
 		`<h3>New name</h3>`,
 		`<input id="input-edit-name" value="${memory.name}"></input>`,
+		`<br>`,
 		`<button id="button-edit-name">OK</button>`,
 	    );
 	    // .................................................................
@@ -147,43 +124,86 @@ class Main {
 	this.storage.write(memory);
 	return this;
     }
-    async tryGetRandomOpponent() {
-	const server = this.server;
+    // -------------------------------------------------------------------------
+    async getOpponent() {
 	const memory = this.memory;
-	const {popup, tabs} = this.html;
+	const button = document.getElementById('button-play');
 	// ---------------------------------------------------------------------
 	if (memory.game.opponent.id) { // Return if in game
-	    //tabs.to('page-game');
+	    tabs.to('page-game');
 	    await popup.show(
 		`<h3>Already in game</h3>`,
 		`<button onclick="popup.resolve()">OK</button>`
 	    ).value();
-	    return;
+	    return null;
 	}
-	await server.message('update', {wantToPlay: true});
-	this.setQueueStatus('searching');
+	// ---------------------------------------------------------------------
+	await new Promise(resolve => button.addEventListener('click', resolve, {once: true}));
 
-	const promisedInviteeId = new Promise(async resolve => { // Invite
+	const choice = await popup.show(
+	    `<h3>Play</h3>`,
+	    `<hr>`,
+	    `<button onclick="popup.resolve('random')">Random</button>`,
+	    `<button onclick="popup.resolve('friend')">Friend</button>`,
+	    `<br>`,
+	    `<button onclick="popup.resolve('cancel')">Cancel</button>`,
+	).value();
+
+	let opponentId = 
+	    (choice === 'random')? await this.getOpponentRandom() :
+	    (choice === 'friend')? await this.getOpponentFriend() :
+	    null;
+
+	// console.log(opponentId)
+
+	return opponentId;
+    }
+    async getOpponentRandom() {
+	const server = this.server;
+	const status = document.getElementById('view-play-status');
+	const cancel = document.getElementById('button-cancel-play');
+	const memory = this.memory;
+	// ---------------------------------------------------------------------
+	await server.message('update', {wantToPlayRandom: true});
+	const intervalId = [status].map(status => {
+	    let cycleCounter = 0;
+	    
+	    const intervalId = setInterval(() => {
+		status.textContent = 'searching' + '.'.repeat(cycleCounter);
+		cycleCounter = (cycleCounter + 1) % 4;
+	    }, 500);
+
+	    return intervalId;
+	})[0];
+	// ---------------------------------------------------------------------
+	const promiseCancel = new Promise(async resolve => {
+	    await new Promise(resolve1 => cancel.addEventListener('click', resolve1, {once: true}));
+	    await server.message('update', {wantToPlayRandom: false});
+	    resolve(null);
+	});
+	const promiseInvite = new Promise(async resolve => {
 	    const profiles = await server.message('profiles');
-	    const inviteeIds = Object.keys(profiles).filter(id => { // Wants to play & is not self
-		return profiles[id].wantToPlay && id !== memory.id.shared;
+	    const inviteeIds = Object.keys(profiles).filter(inviteeId => { // Wants to play & is not self
+		return profiles[inviteeId].wantToPlayRandom && inviteeId !== memory.id.shared;
 	    });
 
 	    for (const inviteeId of inviteeIds) {
-		const response = await server.message('relay', inviteeId, 'invite');
+		const response = await server.message('relay', inviteeId, 'invite', memory.name);
 		if (response.accept) {resolve(inviteeId); return;}
 	    }
 	});
-	const promisedInviterId = new Promise(async resolve => { // Get invited
+	const promiseGetInvited = new Promise(async resolve => {
 	    while (true) {
-		const [inviterId, callback] = await new Promise(resolveInner => {
+		const [inviterId, inviterName, callback] = await new Promise(resolve1 => {
 		    server.socket.removeAllListeners('invite');
-		    server.socket.once('invite',
-				       (inviterId, callback) => resolveInner([inviterId, callback]));
+		    server.socket.once('invite', (inviterId, inviterName, callback) =>
+			resolve1([inviterId, inviterName, callback]));
 		});
 		const {accept} = await [popup].map(async popup => {
 		    popup.show(
-			`<h3>Invite received</h3>`,
+			`<h3>Invite received from </h3>`,
+			`<h3>${inviterName}</h3>`,
+			`<hr>`,
 			`<button id="button-accept">Accept</button>`,
 			`<button id="button-decline">Decline</button>`,
 		    );
@@ -203,44 +223,137 @@ class Main {
 		if (accept) {resolve(inviterId); return;}
 	    }
 	});
-	const promisedCancel = new Promise(async resolve => { // Cancel
-	    await new Promise(resolveInner => document
-			      .getElementById('button-stop-play-random')
-			      .addEventListener('click', resolveInner, {once: true}));
+	const opponentId = await Promise.race([promiseCancel, promiseInvite, promiseGetInvited]);	
+	// ---------------------------------------------------------------------
+	clearInterval(intervalId);
+	status.textContent = (opponentId)? 'opponent found' : 'idle';
+	return opponentId;
+    }
+    async getOpponentFriend() {
+	const memory = this.memory;
+	const server = this.server;
+	// ---------------------------------------------------------------------
+	const initialFriendTag = Math.round(1000*Math.random()).toString();
+	popup.show(
+	    `<h3>Find friend by tag</h3>`,
 
-	    await server.message('update', {wantToPlay: false});
-	    this.setQueueStatus('idle');
-	    //document.getElementById('view-play-status').textContent = 'idle';
-	    //document.getElementById('button-stop-play-random').style.display = 'none';
-	    //document.getElementById('button-play-random').style.display = 'inline-block';
+	    `<input type="text" id="input-friend-tag" value="${initialFriendTag}">`,
+	    `<br>`,
+	    `<div class="align-left">`,
+	    `<span id="view-search-status" class="searching"></span>`,
+	    `</div>`,
+	    `<br>`,
+	    `<button id="button-search-friend-by-tag">Search</button>`,
+	    `<button id="button-cancel-play-friend">Cancel</button>`,
+	).value();
 
-	    resolve(null);
+	const inputFriendTag = [document.getElementById('input-friend-tag')].map(inputFriendTag => {
+	    setTimeout(() => { // Focus friendTag
+		inputFriendTag.focus();
+		const length = inputFriendTag.value.length;
+		inputFriendTag.setSelectionRange(length, length);
+	    }, 100); // Hack?
+	    return inputFriendTag;
+	})[0];
+	const buttonSearch = document.getElementById('button-search-friend-by-tag');
+	const buttonCancel = document.getElementById('button-cancel-play-friend');
+	const searchStatus = document.getElementById('view-search-status');
+	
+	const promiseCancel = new Promise(resolve => {
+	    buttonCancel.addEventListener('click', () => { popup.resolve(); resolve(null); });
 	});
+	const promiseInvite = new Promise(async resolve => {
+	    while (true) {
+		await Promise.race([
+		    new Promise(resolve1 => buttonSearch.addEventListener('click', resolve1)),
+		    new Promise(resolve1 => inputFriendTag.addEventListener('keydown', event => {
+			if (event.key === 'Enter') { resolve1(); }
+		    })),
+		]);
 
-	const opponentId = await Promise.race([promisedInviteeId, promisedInviterId, promisedCancel]);
+		const intervalId = [searchStatus].map(status => {
+		    let cycleCounter = 0;
+
+		    status.textContent = 'searching';
+		    const intervalId = setInterval(() => {
+			status.textContent = 'searching' + '.'.repeat(cycleCounter);
+			cycleCounter = (cycleCounter + 1) % 4;
+		    }, 500);
+
+		    return intervalId;
+		})[0];
+		
+		await server.message('update', {friendTag: inputFriendTag.value});
+		const profiles = await server.message('profiles');
+		const inviteeIds = Object.keys(profiles).filter(inviteeId => { // Same tag & is not self
+		    // console.log(profiles[inviteeId].friendTag, inputFriendTag.value)
+		    return profiles[inviteeId].friendTag === inputFriendTag.value && inviteeId !== memory.id.shared;
+		});
+		// TODO: remember to reset friendTag to null
+		for (const inviteeId of inviteeIds) {
+		    const response = await server.message('relay', inviteeId, 'invite', memory.name);
+		    if (!response.accept) {continue;}
+
+		    await server.message('update', {friendTag: null});
+		    clearInterval(intervalId);
+		    popup.resolve(); resolve(inviteeId); return;
+		}
+	    }
+	});
+	const promiseGetInvited = new Promise(async resolve => {
+	    new Promise(resolve1 => buttonSearch.addEventListener('click', resolve1)),
+	    await Promise.race([		
+		new Promise(resolve1 => inputFriendTag.addEventListener('keydown', event => {
+		    if (event.key === 'Enter') { resolve1(); }
+		})),
+	    ]);
+	    await server.message('update', {friendTag: inputFriendTag.value});	    
+	    // -----------------------------------------------------------------
+	    const [inviterId, inviterName, callback] = await new Promise(resolve1 => {
+		    server.socket.removeAllListeners('invite');
+		    server.socket.once('invite', (inviterId, inviterName, callback) =>
+			resolve1([inviterId, inviterName, callback]));
+		});
+	    popup.resolve();
+	    const {accept} = await [popup].map(async popup => {
+		    popup.show(
+			`<h3>Invite received from </h3>`,
+			`<h3>${inviterName}</h3>`,
+			`<button id="button-accept">Accept</button>`,
+			`<button id="button-decline">Decline</button>`,
+		    );
+		    document
+			.getElementById('button-accept')
+			.addEventListener('click', () => {
+			    popup.resolve({accept: true});
+			});
+		    document
+			.getElementById('button-decline')
+			.addEventListener('click', () => {
+			    popup.resolve({accept: false});
+			});
+		    return await popup.value();
+		})[0];
+	    callback({accept});
+
+	    resolve((accept)? inviterId : null);
+	});	
+	const opponentId = await Promise.race([promiseCancel, promiseInvite, promiseGetInvited]);
+
 	return opponentId;
     }
-    async getRandomOpponent() {
-	const button = document.getElementById('button-play-random');
-	let opponentId = null;
-	while (!opponentId) {
-	    await new Promise(resolve1 => button.addEventListener('click', resolve1, {once: true}));
-	    opponentId = await this.tryGetRandomOpponent();
-	}	
-	return opponentId;
-    }
+    // -------------------------------------------------------------------------
     async startGame() {
 	// TODO: clean up in here
 	// ---------------------------------------------------------------------
 	if (this.game) {this.game.destroy(); this.game = null;}
-	this.setQueueStatus('game');
+	// this.setQueueStatus('game');
 	// ---------------------------------------------------------------------
 	const memory = this.memory;
 	const server = this.server;
 	const tabs = this.html.tabs;
 	// ---------------------------------------------------------------------
-	await server.message('update', {wantToPlay: false});
-	tabs.to('page-game');
+	await server.message('update', {wantToPlayRandom: false});			
 	// ---------------------------------------------------------------------
 	const gameLog = memory.game.history;
 	memory.game.opponent.name = memory.game.opponent.name ||
@@ -262,13 +375,15 @@ class Main {
 	    return [color1, color2];
 	})[0];
 	// -------------------------------------------------------------------------
+	setTimeout(() => tabs.to('page-game'), 0); // Hack?
 	const game = await new Game().initialize({
 	    nrows: 9 , ncols: 9,
 	    me: {name: memory.name, color: color1},
 	    opponent: {name: memory.game.opponent.name, color: color2},
 	    history: JSON.parse(JSON.stringify(gameLog)), // Ugly
 	    myIdx: memory.game.myIdx,
-	}); this.game = game; // Ugly?
+	}); this.game = game; // Ugly?	
+	
 	const exchange = async turnData => {
 	    // TODO: make own method?
 	    const message = {turnData, inGame: true};
@@ -309,7 +424,6 @@ class Main {
 	const server = this.server;
 	const memory = this.memory;
 	const storage = this.storage;
-	const popup = this.html.popup;
 	// ---------------------------------------------------------------------
 	const choice = await popup.show(
 	    `<h3>${message}</h3>`,
@@ -354,7 +468,7 @@ class Main {
 	return this;
     }
 }
-// -----------------------------------------------------------------------------
+// localStorage.clear();
 await new Main().runLoop();
 // while (true) {
 //     try { await new Main().runLoop(); }

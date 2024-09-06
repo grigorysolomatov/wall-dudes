@@ -1,0 +1,16 @@
+input {
+    font-size: 18px;
+    padding: 10px;
+    border-style: solid;
+    border-radius: 5px;
+    border-width: 2px;
+    margin: 10px;
+}
+input:hover {
+    background-color: #000;    
+}
+input:focus {
+    border-color: #fff;
+    outline: none;
+    border-width: 2px;
+}

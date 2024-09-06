@@ -1,0 +1,18 @@
+body {
+    margin: 0;
+    padding: 20px;
+    overflow: hidden;
+    background-color: #111;
+    color: #eee;
+    font-size: 24px;
+    font-family: "Margarine", sans-serif;
+    font-style: normal;
+    text-align: center;
+}
+* {
+    font-family: inherit;
+    color: inherit;
+    background-color: inherit;
+    color: inherit;
+}
+

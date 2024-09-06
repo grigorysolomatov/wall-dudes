@@ -1,0 +1,44 @@
+button {
+    font-size: 24px;
+    background-color: #111;
+    border-radius: 10px;
+    border-width: 3px;
+    border-color: #ccc;
+    border-style: solid;
+    vertical-align: middle;
+    min-width: 100px;
+    margin: 10px;
+    
+    margin-right: 10px;
+    margin-left: 10px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+button:hover {
+    border-color: #fff;
+    box-shadow: 0 0 10px #fff;
+}
+/* ----------------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------------- */
+button.edit {
+    font-size: 24px;
+    color: #888;
+    border-style: none;
+    margin: 0px;
+    min-width: 0px;
+}
+button.edit:hover {
+    color: #fff;
+    box-shadow: 0 0 0px #fff;
+}
+/* ----------------------------------------------------------------------------- */
+button#button-cancel-play {
+    color: #888;
+    border-style: none;
+    box-shadow: 0 0 0px #888;
+}
+button#button-cancel-play:hover {
+    border-style: none;
+    box-shadow: 0 0 0px #fff;
+    color: #fff;
+}

@@ -1,0 +1,14 @@
+div.align-left {
+    display: inline-block;
+    text-align: left;    
+}
+div.min-width {
+    min-width: 300px;
+}
+div.border {
+    border-radius: 10px;
+    border-width: 3px;
+    border-color: #fff;
+    border-style: solid;
+    padding: 5px;
+}

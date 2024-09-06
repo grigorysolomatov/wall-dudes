@@ -1,0 +1,15 @@
+button.tab {
+    border-width: 3px;
+    font-size: 32px;
+    margin: 4px;
+    color: #888;
+    border-color: #888;
+}
+button.tab:hover {
+    box-shadow: 0 0 10px #fff;
+    border-color: #fff;
+}
+button.tab-open {
+    color: #fff;
+    border-color: #fff;
+}

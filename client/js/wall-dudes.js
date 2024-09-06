@@ -75,7 +75,7 @@ export class Game {
 	    new Phaser.Game({
 		width: 900,
 		height: 900,
-		backgroundColor: '#000000',
+		backgroundColor: '#111111',
 		// .................................................................
 		parent: 'phaser-window',
 		type: Phaser.WEBGL,
