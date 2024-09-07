@@ -1,16 +1,46 @@
-<h3>Turns</h3>
-<ul class="align-left"> 
-<li>Wall Dudes is played by two players taking turns.</li>
-<li>During each turn, a player selects one of their wall dudes and moves it one, two or three times.</li>
-<li>Whenever a wall dude leaves a tile, that tile becomes a wall.</li>
-<li>Jumpers can't pass through walls or other wall dudes (belonging to any player).</li>
-<li>If <em>any</em> of a player's wall dudes has no valid moves at the <em>start</em> of their turn,
-  that player loses.</li>
-<li>If <em>any</em> of a player's wall dudes <em>starts</em> their turn on a lava tile, that player loses.</li>
-</ul>
+<br>
+
+<h3>Fundamentals</h3>
+<p>
+Wall Dudes is a tactical strategy game where two players take turns controlling special units called "wall dudes" while trying to force their opponent into either of the following two lose conditions:
+</p>
+<br>
+<ol>
+  <li>
+    If <u>any</u> of a player's wall dudes has no valid moves at the <u>start</u> of their turn,
+    that player loses due to being stuck.
+  </li>
+  <li>
+    If <u>any</u> of a player's wall dudes is standing on a lava tile at the <u>start</u> of their turn,
+  that player loses due to being burned.
+  </li>
+</ol>
 
 <h3>Movement</h3>
-<ul class="align-left"> 
-  <li>Once a wall dude is selected during a players turn, that wall dude moves one, two or three times.</li>
-  <li>During a move, a wall dude travels along a straight line (horizontally or diagonally) until blocked by a wall or another wall dude.</li>
-</ul>
+<p>
+  At the start of their turn, the player selects any one of their wall dudes and proceeds by making three steps with that wall dude.
+  During each step, the selected wall dude moves the <u>maximal</u> possible distance in any direction (horizontally, vertically or diagonally) until reaching the end of the board or being blocked by another wall dude or a wall tile.
+  Whenever a wall dude leaves a tile, that tile immediately turns into a wall tile, reducing the remaining empty space on the board.
+</p>
+
+<h3>Abilities</h3>
+<p>
+  During the player's turn, instead of the second or the third step with their selected wall dude, the player may choose to activate one of their abilities, which immediately ends their turn. 
+</p>
+<br>
+<p>
+  The most basic ability is "pass" - it can be used any number of times during a game, and it does nothing except for ending the player's turn.  
+
+All of the remaining six abilities are consumed after a single use, and they all have the effect of transforming some tiles into others. Specifically, each of these transformation abilities targets the eight tiles immediately adjacent to the currently selected wall dude, and among these eight they transform all tiles of some type into another type:
+</p>
+<br>
+<ol>
+  <li>empty to lava</li>
+  <li>empty to wall</li>
+  <li>wall to lava</li>
+  <li>wall to empty</li>
+  <li>lava to wall</li>
+  <li>lava to empty</li>
+</ol>
+<br>
+<p>Tiles that have a wall dude on them are not affected by abilities.</p>
