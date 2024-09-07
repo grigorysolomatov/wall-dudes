@@ -1,9 +1,8 @@
 const TODOS = () => {
     const todos = [
-	"* BUGS",
-	"- Who goes first, is bugged? Assignment seems to stick across rematch",
-	"* TODOS",
-	"- Alternate first turn when rematch",
+	"- Opponent online?",
+	"- On reconnect: return to game?",
+	"- Resign: Are you sure? MEH",
     ].join('\n');
     console.log(todos);
 }; // TODOS();
@@ -24,19 +23,16 @@ class Main {
 	this.setupMemoryAndStorage();
 	const memory = this.memory;
 	
-	await this.setupHtml(); this.html.tabs.to('page-home');
+	await this.setupHtml(); this.html.tabs.to('page-home');	
 	await this.setupServer();
+	await this.askReturnToGame();
 	['button-change-name'].map(id => { // Subscribe
 	    document.getElementById(id).addEventListener('click', async () => await this.changeName());
 	});
 	// Get opponent and play -----------------------------------------------
-	//await this.getOpponent();
 	while (!memory.game.opponent.id) { memory.game.opponent.id = await this.getOpponent(); }
-	// memory.game.opponent.id = memory.game.opponent.id || await this.getRandomOpponent();
 	this.storage.write(memory);
 	await this.startGame();
-	// After game ----------------------------------------------------------
-	// this.setQueueStatus('idle');	
     }
     // Setup -------------------------------------------------------------------
     setupMemoryAndStorage() {
@@ -79,12 +75,44 @@ class Main {
 	this.html = {popup, tabs};
 	return this;
     }
+    async askReturnToGame() {
+	const memory = this.memory;
+	const storage = this.storage;
+	// ---------------------------------------------------------------------
+	
+	if (!memory.game.opponent.id) {return this;}
+	
+	const choice = await popup.show(
+	    `<h3>Return to game?</h3>`,
+	    `<hr>`,
+	    `<button onclick="popup.resolve('yes')">Yes</button>`,
+	    `<button onclick="popup.resolve('no')">No</button>`,
+	).value();
+
+	if (choice === 'no') {
+	    memory.game = memory.game = {
+		history: [],
+		opponent: {
+		    id: null,
+		    name: null,
+		},
+		myIdx: null,
+	    };
+	    storage.write(memory);
+	}
+
+	return this;
+    }
     async setupServer() {
 	const memory = this.memory;
 	// ---------------------------------------------------------------------
-	const server = new Server(io());
+	const server = new Server(io());	
+	server.socket.on('profiles', profiles => { // Update Player count UI
+	    document.getElementById('view-players-online').textContent = Object.keys(profiles).length;
+	});
 	memory.id.shared = await server.message('register', memory.id.secret);
-	await server.message('update', {name: memory.name, wantToPlayRandom: false});
+	
+	await server.message('update', {name: memory.name, wantToPlayRandom: false});	
 	// ---------------------------------------------------------------------
 	this.server = server;
 	this.storage.write(memory);
@@ -167,17 +195,19 @@ class Main {
 	await server.message('update', {wantToPlayRandom: true});
 	const intervalId = [status].map(status => {
 	    let cycleCounter = 0;
-	    
+	    status.textContent = 'searching';
 	    const intervalId = setInterval(() => {
 		status.textContent = 'searching' + '.'.repeat(cycleCounter);
 		cycleCounter = (cycleCounter + 1) % 4;
 	    }, 500);
+	    cancel.style.visibility = 'visible';
 
 	    return intervalId;
 	})[0];
 	// ---------------------------------------------------------------------
 	const promiseCancel = new Promise(async resolve => {
 	    await new Promise(resolve1 => cancel.addEventListener('click', resolve1, {once: true}));
+	    cancel.style.visibility = 'hidden';
 	    await server.message('update', {wantToPlayRandom: false});
 	    resolve(null);
 	});
@@ -348,7 +378,8 @@ class Main {
 	// TODO: clean up in here
 	// ---------------------------------------------------------------------
 	if (this.game) {this.game.destroy(); this.game = null;}
-	// this.setQueueStatus('game');
+	document.getElementById('view-play-status').textContent = 'in game';
+	document.getElementById('button-cancel-play').style.visibility = 'hidden';
 	// ---------------------------------------------------------------------
 	const memory = this.memory;
 	const server = this.server;
@@ -426,11 +457,20 @@ class Main {
 	const memory = this.memory;
 	const storage = this.storage;
 	// ---------------------------------------------------------------------
-	memory.game.history = [];
-	memory.game.myIdx = 1 - memory.game.myIdx;
-	
+	const prevGame = memory.game;
+	memory.game = {
+	    history: [],
+	    opponent: {
+		id: null,
+		name: null,
+	    },
+	    myIdx: null,
+	};	
+	storage.write(memory);
+	// ---------------------------------------------------------------------	
 	const choice = await popup.show(
 	    `<h3>${message}</h3>`,
+	    `<hr>`,
 	    `<button onclick="popup.resolve('rematch')">Rematch</button>`,
 	    `<button onclick="popup.resolve('leave')">Leave</button>`,
 	).value();	
@@ -439,12 +479,15 @@ class Main {
 	    const response = await Promise.race([
 		popup.show(
 		    `<h3>Waiting for opponent...</h3>`,
+		    `<hr>`,
 		    `<button onclick="popup.resolve('cancel')">Leave</button>`,
 		).value(),
-		server.message('exchange', memory.game.opponent.id, choice),
+		server.message('exchange', prevGame.opponent.id, choice),
 	    ]); popup.resolve?.();
 	    
 	    if (response === 'rematch') {
+		memory.game.opponent = prevGame.opponent;
+		memory.game.myIdx = 1 - prevGame.myIdx;
 		storage.write(memory);
 		await this.startGame(); return this;
 	    }
@@ -456,17 +499,8 @@ class Main {
 	    }
 	}
 	else if (choice === 'leave') {
-	    server.message('exchange', memory.game.opponent.id, choice);
+	    server.message('exchange', prevGame.opponent.id, choice);
 	}
-	memory.game = {
-	    history: [],
-	    opponent: {
-		    id: null,
-		    name: null,
-		},
-	    myIdx: null,
-	};
-	storage.write(memory);
 	
 	return this;
     }

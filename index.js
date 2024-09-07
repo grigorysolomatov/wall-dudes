@@ -15,6 +15,11 @@ const {Server} = require('./js/server');
 function main() {
     const clients = {};
     const exchangeData = {};
+    const getClientProfiles = () => {
+	const clientProfiles = {};
+	Object.keys(clients).forEach(id => { clientProfiles[id] = clients[id].profile});
+	return clientProfiles;
+    };
 
     const hasher = id => crypto.createHash('sha1').update(id).digest('hex');    
     const gameServer = new Server({ io, clients, hasher })
@@ -30,9 +35,7 @@ function main() {
 		  callback(requestedProfile);
 	      },
 	      profiles: (caller, callback) => {
-		  const clientProfiles = {};
-		  Object.keys(clients).forEach(id => { clientProfiles[id] = clients[id].profile});
-		  callback(clientProfiles);
+		  callback(getClientProfiles());
 	      },
 	      relay: async (caller, receiverId, messageName, ...args) => {
 		  const callback = args.pop();
@@ -63,11 +66,16 @@ function main() {
 		      delete exchangeData[key];
 		  }
 	      },
+	      connect: (caller) => {
+		  io.emit('profiles', getClientProfiles());
+	      },
 	      disconnect: (caller) => {
 		  delete clients[caller.id];
 		  Object.keys(exchangeData) // Cancel all unresolved exchanges: avoid messing up reconnect
 		      .filter(key => key.includes(caller.id))
 		      .forEach(key => delete exchangeData[key][caller.id]);
+
+		  io.emit('profiles', getClientProfiles());
 	      },
 	      echo: (caller, ...args) => {
 		  const callback = args.pop();

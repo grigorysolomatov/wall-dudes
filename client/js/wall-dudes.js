@@ -75,8 +75,8 @@ export class Game {
 	this.scene = await new Promise(resolve => {
 	    const scene = new MainScene();
 	    new Phaser.Game({
-		width: 900,
-		height: 780,
+		width: 750,
+		height: 750,
 		backgroundColor: '#111111',
 		// .................................................................
 		parent: 'phaser-window',

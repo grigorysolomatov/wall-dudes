@@ -11,6 +11,7 @@ class Server {
 		new Client({socket, id: hashedId})
 		.subscribe(clientCommands);
 	    console.log(`${hashedId}`, 'register');
+	    clientCommands.connect?.(hashedId); // New addition, watch out, does this belong here?
 	    callback(hashedId);
 	};
 	
