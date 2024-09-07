@@ -375,38 +375,54 @@ class Main {
     }
     // -------------------------------------------------------------------------
     async startGame() {
-	// TODO: clean up in here
-	// ---------------------------------------------------------------------
-	if (this.game) {this.game.destroy(); this.game = null;}
 	document.getElementById('view-play-status').textContent = 'in game';
 	document.getElementById('button-cancel-play').style.visibility = 'hidden';
+	if (this.game) {this.game.destroy(); this.game = null;}	
 	// ---------------------------------------------------------------------
 	const memory = this.memory;
 	const server = this.server;
 	const tabs = this.html.tabs;
 	// ---------------------------------------------------------------------
-	await server.message('update', {wantToPlayRandom: false});			
+	await server.message('update', {wantToPlayRandom: false});
 	// ---------------------------------------------------------------------
 	const gameLog = memory.game.history;
 	memory.game.opponent.name = memory.game.opponent.name ||
 	    await server.message('exchange', memory.game.opponent.id, memory.name);
 	memory.game.myIdx = memory.game.myIdx ??
-	    await [Math.floor(Math.random()*2)].map(async myNum => {	
+	    await [Math.floor(Math.random()*2)].map(async myNum => {
 		const hisNum = await server.message('exchange', memory.game.opponent.id, myNum);		
 		const sortedIds = [memory.id.shared, memory.game.opponent.id].sort();
 		const playerIds = ((myNum + hisNum) % 2) ? sortedIds : sortedIds.reverse();
 		const myIdx = playerIds.indexOf(memory.id.shared);
 		return myIdx;
 	    })[0];
-	// ---------------------------------------------------------------------
 	this.storage.write(memory);
+	// ---------------------------------------------------------------------
 	let myTurnFirst = memory.game.myIdx === 0;
 	const [color1, color2] = [myTurnFirst].map(myTurnFirst => {
 	    let [color1, color2] = ['#ffff00', '#00aaff'];
 	    if (!myTurnFirst) {[color1, color2] = [color2, color1]}
 	    return [color1, color2];
 	})[0];
-	// -------------------------------------------------------------------------
+	// ---------------------------------------------------------------------
+	['stillInGame'].map(async stillInGame => { // Tell eachother: still in game
+	    const viewOpponentInGame = document.getElementById('view-opponent-in-game');
+	    const waitTime = 1000; // TODO: Make this higher?
+	    while (true) {
+		const timeoutId = setTimeout(() => {
+		    viewOpponentInGame.textContent = 'Opponent not in game';
+		}, waitTime);		
+		server.message('relay', memory.game.opponent.id, stillInGame, memory.id.shared);
+		server.socket.once(stillInGame, opponentId => {
+		    if (opponentId !== memory.game.opponent.id) {return;}
+		    clearTimeout(timeoutId);
+		    viewOpponentInGame.textContent = 'Opponent in game';
+		    
+		});
+		await timeout(waitTime);
+	    }
+	})[0];
+	// ---------------------------------------------------------------------
 	setTimeout(() => tabs.to('page-game'), 0); // Hack?
 	const game = await new Game().initialize({
 	    nrows: 9 , ncols: 9,
@@ -414,7 +430,7 @@ class Main {
 	    opponent: {name: memory.game.opponent.name, color: color2},
 	    history: JSON.parse(JSON.stringify(gameLog)), // Ugly
 	    myIdx: memory.game.myIdx,
-	}); this.game = game; // Ugly?	
+	}); this.game = game; // Ugly?
 	
 	const exchange = async turnData => {
 	    // TODO: make own method?
