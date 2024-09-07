@@ -406,16 +406,19 @@ class Main {
 	// ---------------------------------------------------------------------
 	['stillInGame'].map(async stillInGame => { // Tell eachother: still in game
 	    const viewOpponentInGame = document.getElementById('view-opponent-in-game');
-	    const waitTime = 2000; // TODO: Make this higher?	    
+	    const waitTime = 2000; // TODO: Make this higher?
 	    while (true) {
-		let opponentInGame = false;
-		server.message('relay', memory.game.opponent.id, stillInGame, memory.id.shared);
-		server.socket.once(stillInGame, opponentId => {
-		    if (opponentId !== memory.game.opponent.id) {return;}
-		    opponentInGame = true;
+		const promiseTimeout = new Promise(resolve => setTimeout(() => resolve(false), 2*waitTime));
+		const promiseStillInGame =  new Promise(resolve => {
+		    server.socket.once(stillInGame, opponentId => {
+			if (opponentId === memory.game.opponent.id) {
+			    resolve(true);
+			}});
+		    server.message('relay', memory.game.opponent.id, stillInGame, memory.id.shared);
 		});
-		await timeout(waitTime);
+		const opponentInGame = await Promise.race([promiseStillInGame, promiseTimeout]);
 		viewOpponentInGame.textContent = (opponentInGame)? 'Opponent in game' : 'Opponent not in game';
+		await timeout(waitTime);
 	    }
 	})[0];
 	// ---------------------------------------------------------------------
