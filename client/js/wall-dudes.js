@@ -76,7 +76,7 @@ export class Game {
 	    const scene = new MainScene();
 	    new Phaser.Game({
 		width: 750,
-		height: 750,
+		height: 680,
 		backgroundColor: '#111111',
 		// .................................................................
 		parent: 'phaser-window',
@@ -284,7 +284,7 @@ class GameUI {
 	await new Promise(resolve => { // Move title to top
 	    this.scene.tweens.add({
 		targets: title,
-		y: 0.1*height,
+		y: 50,
 		duration: 1000*intro,
 		ease: 'Quint.InOut',
 		onComplete: resolve,
@@ -314,7 +314,7 @@ class GameUI {
 	    tiles.add(tile);
 	});
 
-	tiles.y = this.title.y - tiles.list[0].y + 100;
+	tiles.y = this.title.y - tiles.list[0].y + 75;
 
 	const promises = tiles.list.map((tile, i) => new Promise(async resolve => { // Animate creation
 	    const [row, col] = [Math.floor(i/ncols), i % ncols];
@@ -503,7 +503,7 @@ class GameUI {
 	// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	const {width, height} = this.scene.scale;
 	const x = 0;
-	const y = [this.tiles.list].map(tiles => tiles[tiles.length-1].y + 100)[0];
+	const y = [this.tiles.list].map(tiles => tiles[tiles.length-1].y + 80)[0];
 
 	const background = this.makeSprite('stepCounter', x, y).setTint(color);
 	const text = this.scene.addText(x, y, steps).setTint(0xffffff);
@@ -527,7 +527,7 @@ class GameUI {
 	const resignButton = this.makeSprite(
 	    'resign',
 	    this.tiles.x + tileFirst.x + 0.5*tileFirst.displayWidth,
-	    this.tiles.y + tileLast.y + 100,
+	    this.tiles.y + tileLast.y + 80,
 	).setInteractive();
 	resignButton.x += 0.5*resignButton.displayWidth;
 
@@ -990,8 +990,8 @@ class UIStates {
 		return 'startAwaitOpponent';
 	    },
 	    // Opponent turn ---------------------------------------------------
-	    startAwaitOpponent: async () => {
-		game.ui.setStepCounter(3, game.opponent.color);
+	    startAwaitOpponent: async (turnData) => {
+		game.ui.setStepCounter(turnData.steps, game.opponent.color); // Changed 3 -> turnData.steps
 		return 'awaitOpponent';
 	    },
 	    awaitOpponent: async () => {

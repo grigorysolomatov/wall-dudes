@@ -1,7 +1,6 @@
 const TODOS = () => {
     const todos = [
-	"- Opponent online?",
-	"- On reconnect: return to game?",
+	"- Proper site scaling / in game zooming",
 	"- Resign: Are you sure? MEH",
     ].join('\n');
     console.log(todos);
@@ -22,8 +21,8 @@ class Main {
 	// Initial setup -------------------------------------------------------
 	this.setupMemoryAndStorage();
 	const memory = this.memory;
-	
-	await this.setupHtml(); this.html.tabs.to('page-home');	
+
+	await this.setupHtml(); this.html.tabs.to('page-home');
 	await this.setupServer();
 	await this.askReturnToGame();
 	['button-change-name'].map(id => { // Subscribe
@@ -59,7 +58,7 @@ class Main {
     async setupHtml() {
 	const memory = this.memory;
 	// ---------------------------------------------------------------------
-	if (this.skipHtmlSetup) { return this; } else { this.skipHtmlSetup = true; } // Don't setup many times	
+	if (this.skipHtmlSetup) { return this; } else { this.skipHtmlSetup = true; } // Don't setup many times
 	// ---------------------------------------------------------------------
 	await includeHtml({selector: '.include', attribute: 'from'});
 	document.getElementById('view-client-name').textContent = memory.name;
@@ -70,7 +69,7 @@ class Main {
 		   {label: 'Rules', destId: 'page-rules'})
 	      .setSelector('.page').to('page-home');
 	// ---------------------------------------------------------------------
-	window.popup = popup;	
+	window.popup = popup;
 	// ---------------------------------------------------------------------
 	this.html = {popup, tabs};
 	return this;
@@ -79,9 +78,9 @@ class Main {
 	const memory = this.memory;
 	const storage = this.storage;
 	// ---------------------------------------------------------------------
-	
+
 	if (!memory.game.opponent.id) {return this;}
-	
+
 	const choice = await popup.show(
 	    `<h3>Return to game?</h3>`,
 	    `<hr>`,
@@ -106,19 +105,19 @@ class Main {
     async setupServer() {
 	const memory = this.memory;
 	// ---------------------------------------------------------------------
-	const server = new Server(io());	
+	const server = new Server(io());
 	server.socket.on('profiles', profiles => { // Update Player count UI
 	    document.getElementById('view-players-online').textContent = Object.keys(profiles).length;
 	});
 	memory.id.shared = await server.message('register', memory.id.secret);
-	
-	await server.message('update', {name: memory.name, wantToPlayRandom: false});	
+
+	await server.message('update', {name: memory.name, wantToPlayRandom: false});
 	// ---------------------------------------------------------------------
 	this.server = server;
 	this.storage.write(memory);
 	return this;
     }
-    // Do stuff ----------------------------------------------------------------    
+    // Do stuff ----------------------------------------------------------------
     async changeName() {
 	const server = this.server;
 	const memory = this.memory;
@@ -177,7 +176,7 @@ class Main {
 	    `<button onclick="popup.resolve('cancel')">Cancel</button>`,
 	).value();
 
-	let opponentId = 
+	let opponentId =
 	    (choice === 'random')? await this.getOpponentRandom() :
 	    (choice === 'friend')? await this.getOpponentFriend() :
 	    null;
@@ -253,7 +252,7 @@ class Main {
 		if (accept) {resolve(inviterId); return;}
 	    }
 	});
-	const opponentId = await Promise.race([promiseCancel, promiseInvite, promiseGetInvited]);	
+	const opponentId = await Promise.race([promiseCancel, promiseInvite, promiseGetInvited]);
 	// ---------------------------------------------------------------------
 	clearInterval(intervalId);
 	status.textContent = (opponentId)? 'opponent found' : 'idle';
@@ -288,7 +287,7 @@ class Main {
 	const buttonSearch = document.getElementById('button-search-friend-by-tag');
 	const buttonCancel = document.getElementById('button-cancel-play-friend');
 	const searchStatus = document.getElementById('view-search-status');
-	
+
 	const promiseCancel = new Promise(resolve => {
 	    buttonCancel.addEventListener('click', () => { popup.resolve(); resolve(null); });
 	});
@@ -312,7 +311,7 @@ class Main {
 
 		    return intervalId;
 		})[0];
-		
+
 		await server.message('update', {friendTag: inputFriendTag.value});
 		const profiles = await server.message('profiles');
 		const inviteeIds = Object.keys(profiles).filter(inviteeId => { // Same tag & is not self
@@ -332,12 +331,12 @@ class Main {
 	});
 	const promiseGetInvited = new Promise(async resolve => {
 	    new Promise(resolve1 => buttonSearch.addEventListener('click', resolve1)),
-	    await Promise.race([		
+	    await Promise.race([
 		new Promise(resolve1 => inputFriendTag.addEventListener('keydown', event => {
 		    if (event.key === 'Enter') { resolve1(); }
 		})),
 	    ]);
-	    await server.message('update', {friendTag: inputFriendTag.value});	    
+	    await server.message('update', {friendTag: inputFriendTag.value});
 	    // -----------------------------------------------------------------
 	    const [inviterId, inviterName, callback] = await new Promise(resolve1 => {
 		    server.socket.removeAllListeners('invite');
@@ -368,7 +367,7 @@ class Main {
 	    callback({accept});
 
 	    resolve((accept)? inviterId : null);
-	});	
+	});
 	const opponentId = await Promise.race([promiseCancel, promiseInvite, promiseGetInvited]);
 
 	return opponentId;
@@ -377,7 +376,7 @@ class Main {
     async startGame() {
 	document.getElementById('view-play-status').textContent = 'in game';
 	document.getElementById('button-cancel-play').style.visibility = 'hidden';
-	if (this.game) {this.game.destroy(); this.game = null;}	
+	if (this.game) {this.game.destroy(); this.game = null;}
 	// ---------------------------------------------------------------------
 	const memory = this.memory;
 	const server = this.server;
@@ -390,7 +389,7 @@ class Main {
 	    await server.message('exchange', memory.game.opponent.id, memory.name);
 	memory.game.myIdx = memory.game.myIdx ??
 	    await [Math.floor(Math.random()*2)].map(async myNum => {
-		const hisNum = await server.message('exchange', memory.game.opponent.id, myNum);		
+		const hisNum = await server.message('exchange', memory.game.opponent.id, myNum);
 		const sortedIds = [memory.id.shared, memory.game.opponent.id].sort();
 		const playerIds = ((myNum + hisNum) % 2) ? sortedIds : sortedIds.reverse();
 		const myIdx = playerIds.indexOf(memory.id.shared);
@@ -411,13 +410,13 @@ class Main {
 	    while (true) {
 		const timeoutId = setTimeout(() => {
 		    viewOpponentInGame.textContent = 'Opponent not in game';
-		}, waitTime);		
+		}, 2*waitTime);
 		server.message('relay', memory.game.opponent.id, stillInGame, memory.id.shared);
 		server.socket.once(stillInGame, opponentId => {
 		    if (opponentId !== memory.game.opponent.id) {return;}
 		    clearTimeout(timeoutId);
 		    viewOpponentInGame.textContent = 'Opponent in game';
-		    
+
 		});
 		await timeout(waitTime);
 	    }
@@ -431,7 +430,7 @@ class Main {
 	    history: JSON.parse(JSON.stringify(gameLog)), // Ugly
 	    myIdx: memory.game.myIdx,
 	}); this.game = game; // Ugly?
-	
+
 	const exchange = async turnData => {
 	    // TODO: make own method?
 	    const message = {turnData, inGame: true};
@@ -481,16 +480,16 @@ class Main {
 		name: null,
 	    },
 	    myIdx: null,
-	};	
+	};
 	storage.write(memory);
-	// ---------------------------------------------------------------------	
+	// ---------------------------------------------------------------------
 	const choice = await popup.show(
 	    `<h3>${message}</h3>`,
 	    `<hr>`,
 	    `<button onclick="popup.resolve('rematch')">Rematch</button>`,
 	    `<button onclick="popup.resolve('leave')">Leave</button>`,
-	).value();	
-	
+	).value();
+
 	if (choice === 'rematch') {
 	    const response = await Promise.race([
 		popup.show(
@@ -500,7 +499,7 @@ class Main {
 		).value(),
 		server.message('exchange', prevGame.opponent.id, choice),
 	    ]); popup.resolve?.();
-	    
+
 	    if (response === 'rematch') {
 		memory.game.opponent = prevGame.opponent;
 		memory.game.myIdx = 1 - prevGame.myIdx;
@@ -517,7 +516,7 @@ class Main {
 	else if (choice === 'leave') {
 	    server.message('exchange', prevGame.opponent.id, choice);
 	}
-	
+
 	return this;
     }
 }

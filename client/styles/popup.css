@@ -7,7 +7,7 @@
     transform: translate(-50%, -50%);
     width: 100%;
     height: 100%;
-    background-color: #000d;
+    background-color: #111d;
     opacity: 0;
     transition: all 0.5s ease;
 }
