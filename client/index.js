@@ -406,19 +406,16 @@ class Main {
 	// ---------------------------------------------------------------------
 	['stillInGame'].map(async stillInGame => { // Tell eachother: still in game
 	    const viewOpponentInGame = document.getElementById('view-opponent-in-game');
-	    const waitTime = 1000; // TODO: Make this higher?
+	    const waitTime = 2000; // TODO: Make this higher?	    
 	    while (true) {
-		const timeoutId = setTimeout(() => {
-		    viewOpponentInGame.textContent = 'Opponent not in game';
-		}, 2*waitTime);
+		let opponentInGame = false;
 		server.message('relay', memory.game.opponent.id, stillInGame, memory.id.shared);
 		server.socket.once(stillInGame, opponentId => {
 		    if (opponentId !== memory.game.opponent.id) {return;}
-		    clearTimeout(timeoutId);
-		    viewOpponentInGame.textContent = 'Opponent in game';
-
+		    opponentInGame = true;
 		});
 		await timeout(waitTime);
+		viewOpponentInGame.textContent = (opponentInGame)? 'Opponent in game' : 'Opponent not in game';
 	    }
 	})[0];
 	// ---------------------------------------------------------------------

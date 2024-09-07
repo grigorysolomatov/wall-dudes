@@ -124,7 +124,7 @@ export class Game {
 
 	const promises = selects.map((select, i) => new Promise(resolve => {
 	    this.scene.tweens.add({
-		targets: select.setAlpha(1), // ?
+		targets: select.setAlpha(1).setInteractive(), // ?
 		scale: { from: 0, to: select.baseScale },
 		alpha: 1, // ?
 		duration: duration.select,
@@ -142,7 +142,7 @@ export class Game {
 
 	const promises = selects.map((select, i) => new Promise(resolve => {
 	    this.scene.tweens.add({
-		targets: select.setAlpha(1),
+		targets: select.setAlpha(1).setInteractive(),
 		scale: { from: 0, to: select.baseScale },
 		alpha: 1,
 		duration: duration.select,
@@ -177,9 +177,9 @@ export class Game {
     }
     async selectAbility() {
 	const promises  = this.ui.abilities.list.map((ability, i) => new Promise(resolve => {
-	    if (!ability.abilityActive) {return;}
+	    if (!ability.abilityActive) {return;}	    
 	    this.scene.tweens.add({
-		targets: ability,
+		targets: ability.setInteractive(),
 		alpha: 1,
 		duration: 1000,
 		ease: 'Quint.Out',
@@ -195,7 +195,7 @@ export class Game {
     async removeAllChoices() {
 	const promisesSelects = this.ui.selects.list.map(select => new Promise(resolve => {
 	    this.scene.tweens.add({
-		targets: select,
+		targets: select.disableInteractive(),
 		alpha: 0,
 		duration: duration.select,
 		ease: 'Quint.Out',
@@ -204,7 +204,7 @@ export class Game {
 	}));
 	const promisesAbilities = this.ui.abilities.list.map(ability => new Promise(resolve => {
 	    this.scene.tweens.add({
-		targets: ability,
+		targets: ability.disableInteractive(),
 		alpha: 0.5,
 		scale: ability.baseScale,
 		duration: 1000,
@@ -362,20 +362,28 @@ class GameUI {
     async makeAbilitiesCore(owner, abilityDict) { // TODO: remove owner?
 	// Create --------------------------------------------------------------
 	const makeAbility = abilityLabel => {
-	    const ability = this.makeSprite(abilityLabel).setAlpha(0.5).setInteractive();
+	    const ability = this.makeSprite(abilityLabel).setAlpha(0.5);//.setInteractive();
 	    ability.abilityLabel = abilityLabel;
-	    ability.on('pointerover', () => this.scene.tweens.add({
-		targets: ability,
-		scale: (ability.alpha>0.5)? 1.2*ability.baseScale : ability.baseScale, // HACK?
-		duration: 300,
-		ease: 'Quint.Out',
-	    }));
-	    ability.on('pointerout', () => this.scene.tweens.add({
-		targets: ability,
-		scale: ability.baseScale,
-		duration: 300,
-		ease: 'Quint.Out',
-	    }));
+	    ability.on('pointerover', () => {
+		if (ability.alpha <= 0.5) {return;} // Hack?
+		this.scene.tweens.killTweensOf(ability);
+		this.scene.tweens.add({
+		    targets: ability,
+		    // scale: (ability.alpha>0.5)? 1.2*ability.baseScale : ability.baseScale, // HACK?
+		    scale: 1.2*ability.baseScale,
+		    alpha: 1,
+		    duration: 300,
+		    ease: 'Quint.Out',
+		});
+	    });
+	    ability.on('pointerout', () => {
+		this.scene.tweens.add({
+		    targets: ability,
+		    scale: ability.baseScale,
+		    duration: 300,
+		    ease: 'Quint.Out',
+		});
+	    });
 
 	    return ability;
 	};
@@ -383,18 +391,26 @@ class GameUI {
 	    const [type1, type2] = abilityLabel.split('-').slice(1);
 	    const transformTile = this.makeTransformTiles(type1, type2).setAlpha(0.5).setInteractive();
 	    transformTile.abilityLabel = abilityLabel;
-	    transformTile.on('pointerover', () => this.scene.tweens.add({
-		targets: transformTile,
-		scale: (transformTile.alpha>0.5)? 1.2*transformTile.baseScale : transformTile.baseScale, // HACK?
-		duration: 300,
-		ease: 'Quint.Out',
-	    }));
-	    transformTile.on('pointerout', () => this.scene.tweens.add({
-		targets: transformTile,
-		scale: transformTile.baseScale,
-		duration: 300,
-		ease: 'Quint.Out',
-	    }));
+	    transformTile.on('pointerover', () => {
+		if (transformTile.alpha <= 0.5) {return;} // Hack?
+		this.scene.tweens.killTweensOf(transformTile);
+		this.scene.tweens.add({
+		    targets: transformTile,
+		    // scale: (transformTile.alpha>0.5)? 1.2*transformTile.baseScale : transformTile.baseScale, // HACK?
+		    scale: 1.2*transformTile.baseScale,
+		    alpha: 1,
+		    duration: 300,
+		    ease: 'Quint.Out',
+		});
+	    });
+	    transformTile.on('pointerout', () => {
+		this.scene.tweens.add({
+		    targets: transformTile,
+		    scale: transformTile.baseScale,
+		    duration: 300,
+		    ease: 'Quint.Out',
+		});
+	    });
 
 	    return transformTile;
 	};
@@ -450,12 +466,13 @@ class GameUI {
     }
     async makeOpponentAbilities(abilities) {
 	this.opponentAbilities = await this.makeAbilitiesCore('opponent', abilities);
+	this.opponentAbilities.list.forEach(ability => ability.disableInteractive());
 	return this;
     }
     makeSelects() {
 	const selects = this.scene.add.container(this.tiles.x, this.tiles.y);
 	this.tiles.list.forEach((tile, i) => {
-	    const select = this.makeSprite('select', tile.x, tile.y).setAlpha(0.0).setInteractive();
+	    const select = this.makeSprite('select', tile.x, tile.y).setAlpha(0.0);//.setInteractive();
 	    //select.baseScale = select.scale;
 	    //const baseScale = select.scale;
 	    const [row, col] = [Math.floor(i / this.ncols), i % this.ncols];
@@ -991,7 +1008,7 @@ class UIStates {
 	    },
 	    // Opponent turn ---------------------------------------------------
 	    startAwaitOpponent: async (turnData) => {
-		game.ui.setStepCounter(turnData.steps, game.opponent.color); // Changed 3 -> turnData.steps
+		game.ui.setStepCounter(turnData.steps || 3, game.opponent.color);
 		return 'awaitOpponent';
 	    },
 	    awaitOpponent: async () => {
